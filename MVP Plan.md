@@ -10,45 +10,44 @@ Sistem ini dirancang untuk membantu Dinas Komunikasi, Informasi, dan Persandian 
 
 ---
 
-## Milestone 1: Fondasi & Database (Minggu 1)
-- [ ] **Setup Proyek & Supabase**
-  - Inisialisasi Supabase project.
-  - Konfigurasi environment variables (`NEXT_PUBLIC_SUPABASE_URL`, `NEXT_PUBLIC_SUPABASE_ANON_KEY`).
-  - Integrasi `@supabase/supabase-js`.
-- [ ] **Perancangan Skema Database**
-  - Tabel `assets`: Nama aset, kode barang, tahun perolehan, harga, kategori.
-  - Tabel `fuzzy_variables`: Definisi himpunan fuzzy (misal: Kondisi, Umur Ekonomis, Biaya Perawatan).
-  - Tabel `fuzzy_rules`: Penyimpanan basis aturan IF-THEN.
-  - Tabel `disposal_analysis`: Hasil perhitungan fuzzy dan status kelayakan.
-- [ ] **Autentikasi**
-  - Login Admin (Staff Aset) menggunakan Supabase Auth.
+## Milestone 1: Arsitektur & Autentikasi (Web Foundation) - Minggu 1
+- [ ] **Setup Proyek & Landing Page**
+  - Setup Next.js 14+ dengan Shadcn/UI dan Tailwind.
+  - Implementasi Landing Page yang modern dan informatif (Hero section, Fitur Utama, Flow Sistem).
+- [ ] **Autentikasi & User Management**
+  - Desain & Implementasi halaman Login dan Register.
+  - Inisialisasi Supabase project dan integrasi client.
+  - Konfigurasi Supabase Auth & Middleware (Proteksi Rute Dashboard).
+  - Setup tabel `profiles` untuk metadata user.
+- [ ] **Layout Dashboard**
+  - Desain Layout Dashboard yang modern, sidebar responsif, dan navbar.
 
-## Milestone 2: Modul Manajemen Aset (Minggu 2)
-- [ ] **CRUD Aset**
-  - Form input data aset baru.
-  - Dashboard daftar aset dengan filter kondisi.
-- [ ] **Data Master Kriteria**
-  - Interface untuk mengatur parameter fuzzy (semesta pembicaraan dan titik domain kurva).
+## Milestone 2: Sistem Inventaris Aset (Core Web System) - Minggu 2
+- [ ] **Dashboard Utama**
+  - Ringkasan statistik aset (Total, Kondisi, Nilai) dalam bentuk kartu info.
+- [ ] **Modul CRUD Aset**
+  - Form input aset dengan validasi (Nama, Kode, Tahun, Harga, Kondisi).
+  - Daftar aset dengan fitur pencarian, filter kategori, dan pagination.
+- [ ] **Manajemen Referensi**
+  - Interface untuk manajemen Kategori dan Lokasi aset.
 
-## Milestone 3: Engine Fuzzy Mamdani (Minggu 2-3)
-- [ ] **Implementasi Logika Fuzzifikasi**
-  - Fungsi untuk menghitung derajat keanggotaan (Linear Naik/Turun, Segitiga, Trapesium).
-- [ ] **Mesin Inferensi**
-  - Implementasi fungsi implikasi (MIN).
-  - Mekanisme komposisi aturan (MAX).
-- [ ] **Defuzzifikasi (Metode Centroid)**
-  - Perhitungan titik pusat untuk menghasilkan nilai krisp kelayakan.
-- [ ] **Integrasi Perhitungan**
-  - Tombol "Hitung Kelayakan" pada detail aset yang memicu engine fuzzy.
+## Milestone 3: Intelligent Analysis Module (Fuzzy Integration) - Minggu 3
+- [ ] **Konfigurasi Parameter Fuzzy**
+  - Interface untuk mengatur variabel (Kondisi, Umur, Biaya) dan basis aturan IF-THEN.
+- [ ] **Engine Fuzzy Mamdani**
+  - Implementasi logika Fuzzifikasi, Inferensi (MIN-MAX), dan Defuzzifikasi (Centroid).
+- [ ] **Analisis Kelayakan**
+  - Tombol "Proses Analisis" pada detail aset.
+  - Panel hasil analisis yang menampilkan skor kelayakan dan status (Layak/Tidak Layak Hapus).
 
-## Milestone 4: Antarmuka Hasil & Visualisasi (Minggu 4)
-- [ ] **Visualisasi Kurva Fuzzy**
-  - Menampilkan grafik fungsi keanggotaan menggunakan `recharts`.
-- [ ] **Dashboard Analisis**
-  - Menampilkan daftar aset yang direkomendasikan untuk dihapus.
-  - Detail perhitungan (bagaimana angka kelayakan didapat).
-- [ ] **Laporan (Export)**
-  - Fitur cetak surat rekomendasi penghapusan aset (PDF).
+## Milestone 4: Reporting & Visualization (Final System) - Minggu 4
+- [ ] **Visualisasi Data**
+  - Grafik fungsi keanggotaan menggunakan `recharts` untuk transparansi logika.
+- [ ] **Sistem Pelaporan**
+  - Fitur Export PDF untuk surat rekomendasi penghapusan aset.
+- [ ] **Finishing & Polish**
+  - Optimasi UI/UX (Loading states, Toast notifications, Dark mode).
+  - Final testing alur kerja sistem secara menyeluruh.
 
 ---
 
