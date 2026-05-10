@@ -1,8 +1,9 @@
 "use client"
 
-import { useState } from "react"
-import { PlusIcon, PencilIcon, TrashIcon } from "lucide-react"
+import { useState, useEffect } from "react"
+import { PlusIcon, SearchIcon, Loader2, TagsIcon } from "lucide-react"
 import { Button } from "@/components/ui/button"
+import { Input } from "@/components/ui/input"
 import {
   Card,
   CardContent,
@@ -18,21 +19,50 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table"
-
-const mockCategories = [
-  { id: "1", name: "Perangkat IT", description: "Laptop, PC, Server, Networking" },
-  { id: "2", name: "Furnitur", description: "Meja, Kursi, Lemari" },
-  { id: "3", name: "Kendaraan", description: "Motor, Mobil Dinas" },
-]
+import { Badge } from "@/components/ui/badge"
+import { createClient } from "@/lib/supabase/client"
 
 export default function CategoriesPage() {
+  const [categories, setCategories] = useState<any[]>([])
+  const [filtered, setFiltered] = useState<any[]>([])
+  const [search, setSearch] = useState("")
+  const [loading, setLoading] = useState(true)
+  const supabase = createClient()
+
+  useEffect(() => {
+    async function fetchCategories() {
+      const { data, error } = await supabase
+        .from("kategori_barang")
+        .select("*")
+        .order("kode_kategori", { ascending: true })
+
+      if (!error && data) {
+        setCategories(data)
+        setFiltered(data)
+      }
+      setLoading(false)
+    }
+    fetchCategories()
+  }, [supabase])
+
+  useEffect(() => {
+    const q = search.toLowerCase()
+    setFiltered(
+      categories.filter(
+        (c) =>
+          c.kode_kategori?.toLowerCase().includes(q) ||
+          c.nama_kategori?.toLowerCase().includes(q)
+      )
+    )
+  }, [search, categories])
+
   return (
     <div className="space-y-6">
       <div className="flex items-center justify-between">
         <div>
-          <h2 className="text-3xl font-bold tracking-tight">Kategori Aset</h2>
+          <h2 className="text-3xl font-bold tracking-tight">Kategori Barang</h2>
           <p className="text-muted-foreground">
-            Kelola kategori untuk pengelompokan aset.
+            Daftar klasifikasi dan kode kategori seluruh barang inventaris.
           </p>
         </div>
         <Button>
@@ -40,41 +70,95 @@ export default function CategoriesPage() {
         </Button>
       </div>
 
+      {/* Summary cards */}
+      <div className="grid grid-cols-2 gap-4">
+        <Card>
+          <CardHeader className="flex flex-row items-center justify-between pb-2">
+            <CardTitle className="text-sm font-medium">Total Kategori</CardTitle>
+            <TagsIcon className="h-4 w-4 text-muted-foreground" />
+          </CardHeader>
+          <CardContent>
+            <div className="text-2xl font-bold">{categories.length}</div>
+            <p className="text-xs text-muted-foreground">klasifikasi barang</p>
+          </CardContent>
+        </Card>
+        <Card>
+          <CardHeader className="flex flex-row items-center justify-between pb-2">
+            <CardTitle className="text-sm font-medium">Total Barang Terdaftar</CardTitle>
+            <TagsIcon className="h-4 w-4 text-muted-foreground" />
+          </CardHeader>
+          <CardContent>
+            <div className="text-2xl font-bold">
+              {categories.reduce((sum, c) => sum + (c.jumlah_barang || 0), 0).toLocaleString()}
+            </div>
+            <p className="text-xs text-muted-foreground">unit barang</p>
+          </CardContent>
+        </Card>
+      </div>
+
       <Card>
         <CardHeader>
           <CardTitle>Daftar Kategori</CardTitle>
           <CardDescription>
-            Semua kategori aset yang tersedia di sistem.
+            Semua kategori barang yang tersedia. Total: {filtered.length} kategori ditampilkan.
           </CardDescription>
         </CardHeader>
-        <CardContent>
-          <Table>
-            <TableHeader>
-              <TableRow>
-                <TableHead>Nama Kategori</TableHead>
-                <TableHead>Deskripsi</TableHead>
-                <TableHead className="text-right">Aksi</TableHead>
-              </TableRow>
-            </TableHeader>
-            <TableBody>
-              {mockCategories.map((category) => (
-                <TableRow key={category.id}>
-                  <TableCell className="font-medium">{category.name}</TableCell>
-                  <TableCell>{category.description}</TableCell>
-                  <TableCell className="text-right">
-                    <div className="flex justify-end gap-2">
-                      <Button variant="outline" size="icon">
-                        <PencilIcon className="h-4 w-4" />
-                      </Button>
-                      <Button variant="outline" size="icon" className="text-destructive">
-                        <TrashIcon className="h-4 w-4" />
-                      </Button>
-                    </div>
-                  </TableCell>
-                </TableRow>
-              ))}
-            </TableBody>
-          </Table>
+        <CardContent className="space-y-4">
+          {/* Search */}
+          <div className="relative max-w-sm">
+            <SearchIcon className="absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground" />
+            <Input
+              placeholder="Cari kode atau nama kategori..."
+              value={search}
+              onChange={(e) => setSearch(e.target.value)}
+              className="pl-8"
+            />
+          </div>
+
+          {loading ? (
+            <div className="flex justify-center py-12">
+              <Loader2 className="h-8 w-8 animate-spin" />
+            </div>
+          ) : (
+            <div className="rounded-md border">
+              <Table>
+                <TableHeader>
+                  <TableRow>
+                    <TableHead>Kode Kategori</TableHead>
+                    <TableHead>Nama Kategori</TableHead>
+                    <TableHead className="text-right">Jumlah Barang</TableHead>
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  {filtered.length === 0 ? (
+                    <TableRow>
+                      <TableCell colSpan={3} className="h-24 text-center text-muted-foreground">
+                        Tidak ada kategori ditemukan.
+                      </TableCell>
+                    </TableRow>
+                  ) : (
+                    filtered.map((category) => (
+                      <TableRow key={category.kode_kategori}>
+                        <TableCell>
+                          <span className="font-mono text-xs text-muted-foreground">
+                            {category.kode_kategori}
+                          </span>
+                        </TableCell>
+                        <TableCell className="font-medium">
+                          {category.nama_kategori}
+                        </TableCell>
+                        <TableCell className="text-right">
+                          <Badge variant="outline">
+                            {(category.jumlah_barang || 0).toLocaleString()} unit
+                          </Badge>
+                        </TableCell>
+                      </TableRow>
+                    ))
+                  )}
+                </TableBody>
+              </Table>
+            </div>
+          )}
         </CardContent>
       </Card>
     </div>

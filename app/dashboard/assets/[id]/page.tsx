@@ -41,12 +41,12 @@ export default function AssetDetailPage() {
   useEffect(() => {
     async function fetchAsset() {
       const { data, error } = await supabase
-        .from('assets')
+        .from('master_barang')
         .select('*')
         .eq('id', params.id)
         .single()
 
-      if (error) {
+      if (error || !data) {
         // Fallback to mock for demo if not found in real DB
         setAsset({
           id: params.id as string,
@@ -62,8 +62,22 @@ export default function AssetDetailPage() {
           created_at: new Date().toISOString(),
         })
       } else {
-        setAsset(data)
-        if (data.fuzzy_score) {
+        const formattedAsset = {
+          id: data.id,
+          name: data.nama_barang,
+          kode_barang: data.kode_barang,
+          register: data.register,
+          category_id: String(data.kelompok || 1),
+          location_id: data.lokasi_id || "-",
+          purchase_year: data.tgl_perolehan ? new Date(data.tgl_perolehan).getFullYear() : 0,
+          purchase_price: data.harga || 0,
+          condition: data.kondisi === 'RR' ? 'Rusak Ringan' : (data.kondisi === 'RB' ? 'Rusak Berat' : 'Baik'),
+          maintenance_cost: 0,
+          expected_life: 5,
+          created_at: data.created_at || new Date().toISOString(),
+        }
+        setAsset(formattedAsset)
+        if (data.fuzzy_score != null) {
           setAnalysisResult({ score: data.fuzzy_score, status: data.fuzzy_status })
         }
       }
@@ -84,15 +98,15 @@ export default function AssetDetailPage() {
     // Umur: current year - purchase year
     const age = new Date().getFullYear() - asset.purchase_year
 
-    // Biaya: (maintenance / price) * 100
-    const costPercent = (asset.maintenance_cost / asset.purchase_price) * 100
+    // Biaya: (maintenance / price) * 100 (Default to 0 since maintenance is 0 for now)
+    const costPercent = asset.purchase_price > 0 ? (asset.maintenance_cost / asset.purchase_price) * 100 : 0
 
     setTimeout(async () => {
       const result = calculateAssetEligibility(kondisiScore, age, costPercent)
 
-      // Update in Supabase
+      // Update in Supabase master_barang
       const { error } = await supabase
-        .from('assets')
+        .from('master_barang')
         .update({
           fuzzy_score: result.score,
           fuzzy_status: result.status,
@@ -139,13 +153,17 @@ export default function AssetDetailPage() {
               <CardDescription>Detail teknis dan administrasi aset.</CardDescription>
             </CardHeader>
             <CardContent className="grid grid-cols-2 gap-4 text-sm">
-              <div className="space-y-1">
+              <div className="space-y-1 col-span-2">
                 <span className="text-muted-foreground">Nama Aset</span>
                 <p className="font-medium">{asset.name}</p>
               </div>
               <div className="space-y-1">
-                <span className="text-muted-foreground">Kode Aset</span>
-                <p className="font-medium">{asset.code}</p>
+                <span className="text-muted-foreground">Kode Kategori</span>
+                <p className="font-mono text-xs text-muted-foreground">{asset.kode_barang}</p>
+              </div>
+              <div className="space-y-1">
+                <span className="text-muted-foreground">No. Register</span>
+                <p className="font-mono font-semibold">{asset.register}</p>
               </div>
               <div className="space-y-1">
                 <span className="text-muted-foreground">Tahun Perolehan</span>

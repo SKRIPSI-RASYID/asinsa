@@ -23,28 +23,29 @@ export default function DashboardPage() {
   useEffect(() => {
     async function fetchAssets() {
       const { data, error } = await supabase
-        .from('assets')
+        .from('master_barang')
         .select('*')
-        .order('created_at', { ascending: false })
+        .order('id', { ascending: false }) // Aset terbaru yang dimasukkan
+        .limit(10) // Tampilkan 10 aset terbaru di dashboard
 
       if (!error && data) {
-        setAssets(data)
+        // Map data master_barang ke format yang diharapkan DataTable
+        const formattedAssets = data.map((item: any) => ({
+          id: item.id,
+          kode_barang: item.kode_barang,
+          register: item.register,
+          name: item.nama_barang,
+          category: "Peralatan & Mesin",
+          location: item.lokasi_id,
+          purchase_year: item.tgl_perolehan ? new Date(item.tgl_perolehan).getFullYear() : null,
+          purchase_price: item.harga,
+          condition: item.kondisi === 'RR' ? 'Rusak Ringan' : (item.kondisi === 'RB' ? 'Rusak Berat' : 'Baik'),
+          fuzzy_score: null,
+          fuzzy_status: "Belum Dianalisis",
+        }))
+        setAssets(formattedAssets)
       } else {
-        // Fallback mock if error
-        setAssets([
-          {
-            id: "1",
-            name: "MacBook Pro 14\" (Mock)",
-            code: "AST-2023-001",
-            category: "Perangkat IT",
-            location: "Ruang IT",
-            purchase_year: 2023,
-            purchase_price: 35000000,
-            condition: "Baik",
-            fuzzy_score: 0.15,
-            fuzzy_status: "Tidak Layak Hapus",
-          }
-        ])
+        setAssets([])
       }
       setLoading(false)
     }

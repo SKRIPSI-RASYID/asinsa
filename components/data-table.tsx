@@ -38,8 +38,18 @@ import Link from "next/link"
 
 const columns: ColumnDef<any>[] = [
   {
-    accessorKey: "code",
-    header: "Kode",
+    accessorKey: "kode_barang",
+    header: "Kode Kategori",
+    cell: ({ row }) => (
+      <span className="font-mono text-xs text-muted-foreground">{row.original.kode_barang}</span>
+    ),
+  },
+  {
+    accessorKey: "register",
+    header: "No. Register",
+    cell: ({ row }) => (
+      <span className="font-mono font-semibold">{row.original.register}</span>
+    ),
   },
   {
     accessorKey: "name",
