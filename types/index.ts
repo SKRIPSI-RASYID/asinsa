@@ -7,10 +7,13 @@ export interface Profile {
 }
 
 export interface Category {
-  id: string;
-  name: string;
-  description?: string;
-  created_at: string;
+  kode_kategori: string;
+  nama_kategori: string;
+  jumlah_barang?: number;
+  created_at?: string;
+  // Legacy support
+  id?: string;
+  name?: string;
 }
 
 export interface Location {
@@ -21,24 +24,45 @@ export interface Location {
 }
 
 export interface Asset {
-  id: string;
-  name: string;
-  code: string;
-  kode_barang?: string;
+  // Supabase Table: aset
+  id_aset?: number;
+  kode_aset?: string;
+  kode_kategori?: string;
+  harga?: number;
+  tgl_pero?: string;
   register?: string;
-  category_id: string;
-  location_id: string;
-  purchase_year: number;
-  purchase_price: number;
-  condition: 'Baik' | 'Rusak Ringan' | 'Rusak Berat';
-  maintenance_cost: number;
-  expected_life: number;
+  spek_nabar?: string | null;
+  merek?: string | null;
+  satuan?: string | null;
+  cara_pero?: string | null;
+  status_pgn?: string;
+  in_ex?: string;
+  ket?: string;
+  kondisi?: string | null;
   total_perbaikan?: number;
-  biaya_perbaikan?: number;
-  created_at: string;
-
+  jumlah_pengeluaran_perbaikan?: number;
+  
+  // Legacy / UI support
+  category_id?: string;
+  location_id?: string;
+  
+  // Relations
+  kategori_barang?: Category | null;
+  
   // Analysis results
   fuzzy_score?: number;
   fuzzy_status?: 'Layak Hapus' | 'Dipertimbangkan' | 'Tidak Layak Hapus';
   last_analyzed_at?: string;
+
+  // UI / Legacy Compatibility
+  id: string; // Mapping from id_aset
+  name: string; // Mapping from kategori_barang.nama_kategori or merek
+  code: string; // Mapping from kode_aset
+  purchase_year: number; // Extracted from tgl_pero
+  purchase_price: number; // Mapping from harga
+  condition: 'Baik' | 'Rusak Ringan' | 'Rusak Berat'; // Mapped from kondisi (B, RR, RB)
+  maintenance_cost: number; // Mapping from jumlah_pengeluaran_perbaikan
+  biaya_perbaikan?: number; // Alias for UI
+  expected_life: number; // Hardcoded or calculated
+  created_at: string;
 }

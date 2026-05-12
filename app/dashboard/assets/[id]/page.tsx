@@ -63,19 +63,15 @@ export default function AssetDetailPage() {
         })
       } else {
         const formattedAsset: Asset = {
+          ...data,
           id: String(data.id_aset),
-          name: data.kategori_barang?.nama_kategori || "Aset",
+          name: data.merek ? `${data.kategori_barang?.nama_kategori} (${data.merek})` : data.kategori_barang?.nama_kategori || "Aset",
           code: data.kode_aset,
-          kode_barang: data.kode_aset, // alias for UI
-          register: data.register,
-          category_id: data.kode_kategori,
-          location_id: "-", // no lokasi_id in aset table
           purchase_year: data.tgl_pero ? new Date(data.tgl_pero).getFullYear() : 0,
-          purchase_price: data.harga || 0,
+          purchase_price: Number(data.harga) || 0,
           condition: data.kondisi === 'RR' ? 'Rusak Ringan' : (data.kondisi === 'RB' ? 'Rusak Berat' : 'Baik'),
-          maintenance_cost: data.jumlah_pengeluaran_perbaikan || 0,
-          total_perbaikan: data.total_perbaikan || 0,
-          biaya_perbaikan: data.jumlah_pengeluaran_perbaikan || 0,
+          maintenance_cost: Number(data.jumlah_pengeluaran_perbaikan) || 0,
+          biaya_perbaikan: Number(data.jumlah_pengeluaran_perbaikan) || 0,
           expected_life: 5,
           created_at: data.created_at || new Date().toISOString(),
         }
@@ -161,8 +157,12 @@ export default function AssetDetailPage() {
                 <p className="font-medium">{asset.name}</p>
               </div>
               <div className="space-y-1">
+                <span className="text-muted-foreground">Spesifikasi</span>
+                <p className="font-medium">{asset.spek_nabar || "-"}</p>
+              </div>
+              <div className="space-y-1">
                 <span className="text-muted-foreground">Kode Kategori</span>
-                <p className="font-mono text-xs text-muted-foreground">{asset.kode_barang}</p>
+                <p className="font-mono text-xs text-muted-foreground">{asset.code}</p>
               </div>
               <div className="space-y-1">
                 <span className="text-muted-foreground">No. Register</span>

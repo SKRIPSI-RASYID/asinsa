@@ -27,51 +27,16 @@ import {
 } from "@/components/ui/dropdown-menu"
 import { createClient } from "@/lib/supabase/client"
 import { toast } from "sonner"
-
-// ─── Types ────────────────────────────────────────────────────────────────────
-interface Aset {
-  id_aset: number
-  kode_aset: string
-  kode_kategori: string
-  harga: number
-  tgl_pero: string
-  register: string
-  spek_nabar: string | null
-  merek: string | null
-  satuan: string | null
-  cara_pero: string | null
-  status_pgn: string
-  in_ex: string
-  ket: string
-  kondisi: string | null
-  total_perbaikan?: number
-  jumlah_pengeluaran_perbaikan?: number
-  kategori_barang?: { nama_kategori: string } | null
-}
-
-const emptyForm = {
-  kode_aset: "",
-  kode_kategori: "",
-  harga: "",
-  tgl_pero: "",
-  register: "",
-  spek_nabar: "",
-  merek: "",
-  satuan: "Unit",
-  cara_pero: "Pembelian",
-  status_pgn: "DISKOMINSA",
-  in_ex: "Intra",
-  ket: "",
-  kondisi: "B",
-}
+import { Asset, Category } from "@/types"
+import { AssetForm } from "@/components/asset-form"
 
 // ─── Page ─────────────────────────────────────────────────────────────────────
 export default function AssetsPage() {
   const supabase = createClient()
 
-  const [assets, setAssets] = useState<Aset[]>([])
+  const [assets, setAssets] = useState<Asset[]>([])
   const [categories, setCategories] = useState<any[]>([])
-  const [filtered, setFiltered] = useState<Aset[]>([])
+  const [filtered, setFiltered] = useState<Asset[]>([])
   const [search, setSearch] = useState("")
   const [loading, setLoading] = useState(true)
   const [page, setPage] = useState(0)
@@ -79,12 +44,11 @@ export default function AssetsPage() {
 
   // Sheet state
   const [sheetOpen, setSheetOpen] = useState(false)
-  const [editTarget, setEditTarget] = useState<Aset | null>(null)
-  const [form, setForm] = useState({ ...emptyForm })
+  const [editTarget, setEditTarget] = useState<Asset | null>(null)
   const [saving, setSaving] = useState(false)
 
   // Delete state
-  const [deleteTarget, setDeleteTarget] = useState<Aset | null>(null)
+  const [deleteTarget, setDeleteTarget] = useState<Asset | null>(null)
   const [deleting, setDeleting] = useState(false)
 
   // ─── Fetch All ────────────────────────────────────────────────────────────
@@ -134,12 +98,12 @@ export default function AssetsPage() {
     setFiltered(
       assets.filter(
         (a) =>
-          a.kode_aset?.toLowerCase().includes(q) ||
-          a.kode_kategori?.toLowerCase().includes(q) ||
-          a.register?.toLowerCase().includes(q) ||
-          a.merek?.toLowerCase().includes(q) ||
-          a.ket?.toLowerCase().includes(q) ||
-          a.kategori_barang?.nama_kategori?.toLowerCase().includes(q)
+          (a.kode_aset?.toLowerCase().includes(q) ?? false) ||
+          (a.kode_kategori?.toLowerCase().includes(q) ?? false) ||
+          (a.register?.toLowerCase().includes(q) ?? false) ||
+          (a.merek?.toLowerCase().includes(q) ?? false) ||
+          (a.ket?.toLowerCase().includes(q) ?? false) ||
+          (a.kategori_barang?.nama_kategori?.toLowerCase().includes(q) ?? false)
       )
     )
     setPage(0)
@@ -148,69 +112,29 @@ export default function AssetsPage() {
   // ─── Sheet helpers ────────────────────────────────────────────────────────
   function openAdd() {
     setEditTarget(null)
-    setForm({ ...emptyForm })
     setSheetOpen(true)
   }
 
-  function openEdit(asset: Aset) {
+  function openEdit(asset: Asset) {
     setEditTarget(asset)
-    setForm({
-      kode_aset: asset.kode_aset,
-      kode_kategori: asset.kode_kategori,
-      harga: String(asset.harga),
-      tgl_pero: asset.tgl_pero,
-      register: asset.register,
-      spek_nabar: asset.spek_nabar || "",
-      merek: asset.merek || "",
-      satuan: asset.satuan || "Unit",
-      cara_pero: asset.cara_pero || "Pembelian",
-      status_pgn: asset.status_pgn,
-      in_ex: asset.in_ex,
-      ket: asset.ket,
-      kondisi: asset.kondisi || "B",
-    })
     setSheetOpen(true)
-  }
-
-  function setField(key: string, value: string) {
-    setForm(prev => ({ ...prev, [key]: value }))
   }
 
   // ─── Save (Add / Edit) ────────────────────────────────────────────────────
-  async function handleSave() {
-    if (!form.kode_aset || !form.kode_kategori || !form.tgl_pero || !form.register) {
-      toast.error("Isi semua field yang wajib diisi.")
-      return
-    }
+  async function handleSave(values: any) {
     setSaving(true)
-
-    const payload = {
-      kode_aset: form.kode_aset,
-      kode_kategori: form.kode_kategori,
-      harga: Number(form.harga) || 0,
-      tgl_pero: form.tgl_pero,
-      register: form.register,
-      spek_nabar: form.spek_nabar || null,
-      merek: form.merek || null,
-      satuan: form.satuan || null,
-      cara_pero: form.cara_pero || null,
-      status_pgn: form.status_pgn,
-      in_ex: form.in_ex,
-      ket: form.ket,
-      kondisi: form.kondisi || null,
-    }
 
     if (editTarget) {
       const { error } = await supabase
         .from("aset")
-        .update(payload)
+        .update(values)
         .eq("id_aset", editTarget.id_aset)
       if (error) { toast.error("Gagal memperbarui: " + error.message); setSaving(false); return }
-      toast.success("Aset berhasil diperbarui!")
+      toast.success("Asset berhasil diperbarui!")
     } else {
-      const { error } = await supabase.from("aset").insert(payload)
+      const { error } = await supabase.from("aset").insert([values])
       if (error) { toast.error("Gagal menyimpan: " + error.message); setSaving(false); return }
-      toast.success("Aset baru berhasil ditambahkan!")
+      toast.success("Asset baru berhasil ditambahkan!")
     }
 
     setSaving(false)
@@ -230,7 +154,7 @@ export default function AssetsPage() {
     if (error) {
       toast.error("Gagal menghapus: " + error.message)
     } else {
-      toast.success(`Aset "${deleteTarget.kode_aset}" berhasil dihapus.`)
+      toast.success(`Asset "${deleteTarget.kode_aset}" berhasil dihapus.`)
       setDeleteTarget(null)
       fetchAssets()
     }
@@ -238,13 +162,13 @@ export default function AssetsPage() {
   }
 
   // ─── Helpers ──────────────────────────────────────────────────────────────
-  const kondisiLabel = (k: string | null) => {
+  const kondisiLabel = (k: string | null | undefined) => {
     if (!k || k === "B") return "Baik"
     if (k === "RR") return "Rusak Ringan"
     if (k === "RB") return "Rusak Berat"
     return k
   }
-  const kondisiBadge = (k: string | null): "default" | "secondary" | "destructive" => {
+  const kondisiBadge = (k: string | null | undefined): "default" | "secondary" | "destructive" => {
     if (!k || k === "B") return "default"
     if (k === "RR") return "secondary"
     return "destructive"
@@ -259,20 +183,20 @@ export default function AssetsPage() {
       {/* Header */}
       <div className="flex items-center justify-between">
         <div>
-          <h2 className="text-3xl font-bold tracking-tight">Manajemen Aset</h2>
+          <h2 className="text-3xl font-bold tracking-tight">Manajemen Asset</h2>
           <p className="text-muted-foreground">
             Seluruh data aset inventaris yang terdaftar dalam sistem.
           </p>
         </div>
         <Button onClick={openAdd}>
-          <PlusIcon className="mr-2 h-4 w-4" /> Tambah Aset
+          <PlusIcon className="mr-2 h-4 w-4" /> Tambah Asset
         </Button>
       </div>
 
       {/* Main table card */}
       <Card>
         <CardHeader>
-          <CardTitle>Daftar Semua Aset</CardTitle>
+          <CardTitle>Daftar Semua Asset</CardTitle>
           <CardDescription>
             {loading
               ? "Memuat data..."
@@ -320,7 +244,7 @@ export default function AssetsPage() {
                 <Table>
                   <TableHeader>
                     <TableRow>
-                      <TableHead>Kode Aset</TableHead>
+                      <TableHead>Kode Asset</TableHead>
                       <TableHead>Kode Kategori</TableHead>
                       <TableHead>Nama Kategori</TableHead>
                       <TableHead>Register</TableHead>
@@ -434,7 +358,7 @@ export default function AssetsPage() {
       <Sheet open={sheetOpen} onOpenChange={setSheetOpen}>
         <SheetContent className="w-full sm:max-w-xl overflow-y-auto">
           <SheetHeader>
-            <SheetTitle>{editTarget ? "Edit Aset" : "Tambah Aset Baru"}</SheetTitle>
+            <SheetTitle>{editTarget ? "Edit Asset" : "Tambah Asset Baru"}</SheetTitle>
             <SheetDescription>
               {editTarget
                 ? `Perbarui data aset ${editTarget.kode_aset}`
@@ -442,167 +366,12 @@ export default function AssetsPage() {
             </SheetDescription>
           </SheetHeader>
 
-          <div className="mt-6 space-y-4">
-            {/* Kode Aset */}
-            <div className="space-y-1">
-              <Label>Kode Aset *</Label>
-              <Input
-                placeholder="contoh: 1.3.2.10.02.04.023.0001"
-                value={form.kode_aset}
-                onChange={e => setField("kode_aset", e.target.value)}
-              />
-            </div>
-
-            {/* Kode Kategori */}
-            <div className="space-y-1">
-              <Label>Kode Kategori *</Label>
-              <Select value={form.kode_kategori} onValueChange={v => setField("kode_kategori", v)}>
-                <SelectTrigger>
-                  <SelectValue placeholder="Pilih kategori..." />
-                </SelectTrigger>
-                <SelectContent>
-                  {categories.map(c => (
-                    <SelectItem key={c.kode_kategori} value={c.kode_kategori}>
-                      <span className="font-mono text-xs mr-2 text-muted-foreground">{c.kode_kategori}</span>
-                      {c.nama_kategori}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
-
-            {/* Register */}
-            <div className="space-y-1">
-              <Label>No. Register *</Label>
-              <Input
-                placeholder="contoh: 0001"
-                value={form.register}
-                onChange={e => setField("register", e.target.value)}
-              />
-            </div>
-
-            {/* Merek */}
-            <div className="space-y-1">
-              <Label>Merek / Spesifikasi</Label>
-              <Input
-                placeholder="contoh: Dell / Latitude 5490"
-                value={form.merek}
-                onChange={e => setField("merek", e.target.value)}
-              />
-            </div>
-
-            {/* Spek Nabar */}
-            <div className="space-y-1">
-              <Label>Spesifikasi Detail</Label>
-              <Input
-                placeholder="Spesifikasi teknis barang"
-                value={form.spek_nabar}
-                onChange={e => setField("spek_nabar", e.target.value)}
-              />
-            </div>
-
-            {/* Harga */}
-            <div className="space-y-1">
-              <Label>Harga Perolehan (Rp)</Label>
-              <Input
-                type="number"
-                placeholder="0"
-                value={form.harga}
-                onChange={e => setField("harga", e.target.value)}
-              />
-            </div>
-
-            {/* Tanggal Perolehan */}
-            <div className="space-y-1">
-              <Label>Tanggal Perolehan *</Label>
-              <Input
-                type="date"
-                value={form.tgl_pero}
-                onChange={e => setField("tgl_pero", e.target.value)}
-              />
-            </div>
-
-            {/* Satuan */}
-            <div className="space-y-1">
-              <Label>Satuan</Label>
-              <Select value={form.satuan} onValueChange={v => setField("satuan", v)}>
-                <SelectTrigger><SelectValue /></SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="Unit">Unit</SelectItem>
-                  <SelectItem value="Buah">Buah</SelectItem>
-                  <SelectItem value="Set">Set</SelectItem>
-                  <SelectItem value="Paket">Paket</SelectItem>
-                </SelectContent>
-              </Select>
-            </div>
-
-            {/* Cara Perolehan */}
-            <div className="space-y-1">
-              <Label>Cara Perolehan</Label>
-              <Select value={form.cara_pero} onValueChange={v => setField("cara_pero", v)}>
-                <SelectTrigger><SelectValue /></SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="Pembelian">Pembelian</SelectItem>
-                  <SelectItem value="Hibah">Hibah</SelectItem>
-                  <SelectItem value="Lainnya">Lainnya</SelectItem>
-                </SelectContent>
-              </Select>
-            </div>
-
-            {/* Status Pengguna */}
-            <div className="space-y-1">
-              <Label>Status Pengguna</Label>
-              <Input
-                value={form.status_pgn}
-                onChange={e => setField("status_pgn", e.target.value)}
-              />
-            </div>
-
-            {/* Intra / Extra */}
-            <div className="space-y-1">
-              <Label>Intra / Extra Komptabel</Label>
-              <Select value={form.in_ex} onValueChange={v => setField("in_ex", v)}>
-                <SelectTrigger><SelectValue /></SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="Intra">Intra</SelectItem>
-                  <SelectItem value="Extra">Extra</SelectItem>
-                </SelectContent>
-              </Select>
-            </div>
-
-            {/* Kondisi */}
-            <div className="space-y-1">
-              <Label>Kondisi</Label>
-              <Select value={form.kondisi} onValueChange={v => setField("kondisi", v)}>
-                <SelectTrigger><SelectValue /></SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="B">Baik</SelectItem>
-                  <SelectItem value="RR">Rusak Ringan</SelectItem>
-                  <SelectItem value="RB">Rusak Berat</SelectItem>
-                </SelectContent>
-              </Select>
-            </div>
-
-            {/* Keterangan */}
-            <div className="space-y-1">
-              <Label>Keterangan</Label>
-              <Input
-                placeholder="Keterangan tambahan..."
-                value={form.ket}
-                onChange={e => setField("ket", e.target.value)}
-              />
-            </div>
-
-            {/* Actions */}
-            <div className="flex gap-2 pt-4">
-              <Button className="flex-1" onClick={handleSave} disabled={saving}>
-                {saving ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : null}
-                {saving ? "Menyimpan..." : editTarget ? "Simpan Perubahan" : "Tambah Aset"}
-              </Button>
-              <Button variant="outline" onClick={() => setSheetOpen(false)}>
-                Batal
-              </Button>
-            </div>
+          <div className="mt-6">
+            <AssetForm
+              categories={categories}
+              initialData={editTarget || undefined}
+              onSubmit={handleSave}
+            />
           </div>
         </SheetContent>
       </Sheet>

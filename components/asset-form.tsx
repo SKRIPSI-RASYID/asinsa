@@ -20,18 +20,23 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select"
-import { Asset, Category, Location } from "@/types"
+import { Asset, Category } from "@/types"
 
 const assetSchema = z.object({
-  name: z.string().min(2, "Nama minimal 2 karakter"),
-  code: z.string().min(2, "Kode minimal 2 karakter"),
-  category_id: z.string().min(1, "Pilih kategori"),
-  location_id: z.string().min(1, "Pilih lokasi"),
-  purchase_year: z.number().min(1900).max(new Date().getFullYear()),
-  purchase_price: z.number().min(0),
-  condition: z.enum(["Baik", "Rusak Ringan", "Rusak Berat"]),
-  maintenance_cost: z.number().min(0),
-  expected_life: z.number().min(1),
+  kode_aset: z.string().min(2, "Kode minimal 2 karakter"),
+  kode_kategori: z.string().min(1, "Pilih kategori"),
+  register: z.string().min(1, "Register wajib diisi"),
+  merek: z.string().optional(),
+  spek_nabar: z.string().optional(),
+  harga: z.number().min(0),
+  tgl_pero: z.string().min(1, "Tanggal perolehan wajib diisi"),
+  satuan: z.string().default("Unit"),
+  cara_pero: z.string().default("Pembelian"),
+  status_pgn: z.string().default("DISKOMINSA"),
+  in_ex: z.string().default("Intra"),
+  ket: z.string().optional(),
+  kondisi: z.enum(["B", "RR", "RB"]),
+  expected_life: z.number().min(1).default(5),
 })
 
 type AssetFormValues = z.infer<typeof assetSchema>
@@ -39,32 +44,41 @@ type AssetFormValues = z.infer<typeof assetSchema>
 interface AssetFormProps {
   initialData?: Asset
   categories: Category[]
-  locations: Location[]
   onSubmit: (data: AssetFormValues) => void
 }
 
-export function AssetForm({ initialData, categories, locations, onSubmit }: AssetFormProps) {
+export function AssetForm({ initialData, categories, onSubmit }: AssetFormProps) {
   const form = useForm<AssetFormValues>({
     resolver: zodResolver(assetSchema),
     defaultValues: initialData ? {
-      name: initialData.name,
-      code: initialData.code,
-      category_id: initialData.category_id,
-      location_id: initialData.location_id,
-      purchase_year: initialData.purchase_year,
-      purchase_price: initialData.purchase_price,
-      condition: initialData.condition,
-      maintenance_cost: initialData.maintenance_cost,
-      expected_life: initialData.expected_life,
+      kode_aset: initialData.kode_aset || "",
+      kode_kategori: initialData.kode_kategori || "",
+      register: initialData.register || "",
+      merek: initialData.merek || "",
+      spek_nabar: initialData.spek_nabar || "",
+      harga: initialData.harga || 0,
+      tgl_pero: initialData.tgl_pero || new Date().toISOString().split('T')[0],
+      satuan: initialData.satuan || "Unit",
+      cara_pero: initialData.cara_pero || "Pembelian",
+      status_pgn: initialData.status_pgn || "DISKOMINSA",
+      in_ex: initialData.in_ex || "Intra",
+      ket: initialData.ket || "",
+      kondisi: (initialData.kondisi as any) || "B",
+      expected_life: initialData.expected_life || 5,
     } : {
-      name: "",
-      code: "",
-      category_id: "",
-      location_id: "",
-      purchase_year: new Date().getFullYear(),
-      purchase_price: 0,
-      condition: "Baik",
-      maintenance_cost: 0,
+      kode_aset: "",
+      kode_kategori: "",
+      register: "",
+      merek: "",
+      spek_nabar: "",
+      harga: 0,
+      tgl_pero: new Date().toISOString().split('T')[0],
+      satuan: "Unit",
+      cara_pero: "Pembelian",
+      status_pgn: "DISKOMINSA",
+      in_ex: "Intra",
+      ket: "",
+      kondisi: "B",
       expected_life: 5,
     },
   })
@@ -75,84 +89,91 @@ export function AssetForm({ initialData, categories, locations, onSubmit }: Asse
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
           <FormField
             control={form.control}
-            name="name"
+            name="kode_aset"
             render={({ field }) => (
               <FormItem>
-                <FormLabel>Nama Aset</FormLabel>
+                <FormLabel>Kode Aset *</FormLabel>
                 <FormControl>
-                  <Input placeholder="Laptop MacBook Pro" {...field} />
+                  <Input placeholder="1.3.2.10.02.04.023.0001" {...field} />
                 </FormControl>
                 <FormMessage />
               </FormItem>
             )}
           />
+
           <FormField
             control={form.control}
-            name="code"
+            name="kode_kategori"
             render={({ field }) => (
               <FormItem>
-                <FormLabel>Kode Aset</FormLabel>
+                <FormLabel>Kategori *</FormLabel>
                 <FormControl>
-                  <Input placeholder="AST-2024-001" {...field} />
-                </FormControl>
-                <FormMessage />
-              </FormItem>
-            )}
-          />
-          <FormField
-            control={form.control}
-            name="category_id"
-            render={({ field }) => (
-              <FormItem>
-                <FormLabel>Kategori</FormLabel>
-                <Select onValueChange={field.onChange} defaultValue={field.value}>
-                  <FormControl>
+                  <Select onValueChange={field.onChange} defaultValue={field.value}>
                     <SelectTrigger>
                       <SelectValue placeholder="Pilih Kategori" />
                     </SelectTrigger>
-                  </FormControl>
-                  <SelectContent>
-                    {categories.map((cat) => (
-                      <SelectItem key={cat.id} value={cat.id}>
-                        {cat.name}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
+                    <SelectContent>
+                      {categories.map((cat) => (
+                        <SelectItem key={cat.kode_kategori} value={cat.kode_kategori}>
+                          {cat.nama_kategori}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </FormControl>
                 <FormMessage />
               </FormItem>
             )}
           />
+
           <FormField
             control={form.control}
-            name="location_id"
+            name="register"
             render={({ field }) => (
               <FormItem>
-                <FormLabel>Lokasi</FormLabel>
-                <Select onValueChange={field.onChange} defaultValue={field.value}>
-                  <FormControl>
-                    <SelectTrigger>
-                      <SelectValue placeholder="Pilih Lokasi" />
-                    </SelectTrigger>
-                  </FormControl>
-                  <SelectContent>
-                    {locations.map((loc) => (
-                      <SelectItem key={loc.id} value={loc.id}>
-                        {loc.name}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
+                <FormLabel>No. Register *</FormLabel>
+                <FormControl>
+                  <Input placeholder="0001" {...field} />
+                </FormControl>
                 <FormMessage />
               </FormItem>
             )}
           />
+
           <FormField
             control={form.control}
-            name="purchase_year"
+            name="merek"
             render={({ field }) => (
               <FormItem>
-                <FormLabel>Tahun Perolehan</FormLabel>
+                <FormLabel>Merek</FormLabel>
+                <FormControl>
+                  <Input placeholder="Dell / Lenovo / Apple" {...field} />
+                </FormControl>
+                <FormMessage />
+              </FormItem>
+            )}
+          />
+
+          <FormField
+            control={form.control}
+            name="spek_nabar"
+            render={({ field }) => (
+              <FormItem>
+                <FormLabel>Spesifikasi</FormLabel>
+                <FormControl>
+                  <Input placeholder="Core i7, 16GB RAM, 512GB SSD" {...field} />
+                </FormControl>
+                <FormMessage />
+              </FormItem>
+            )}
+          />
+
+          <FormField
+            control={form.control}
+            name="harga"
+            render={({ field }) => (
+              <FormItem>
+                <FormLabel>Harga Perolehan (Rp)</FormLabel>
                 <FormControl>
                   <Input
                     type="number"
@@ -164,62 +185,85 @@ export function AssetForm({ initialData, categories, locations, onSubmit }: Asse
               </FormItem>
             )}
           />
+
           <FormField
             control={form.control}
-            name="purchase_price"
+            name="tgl_pero"
             render={({ field }) => (
               <FormItem>
-                <FormLabel>Harga Perolehan</FormLabel>
+                <FormLabel>Tanggal Perolehan *</FormLabel>
                 <FormControl>
-                  <Input
-                    type="number"
-                    {...field}
-                    onChange={e => field.onChange(parseInt(e.target.value) || 0)}
-                  />
+                  <Input type="date" {...field} />
                 </FormControl>
                 <FormMessage />
               </FormItem>
             )}
           />
+
           <FormField
             control={form.control}
-            name="condition"
+            name="kondisi"
             render={({ field }) => (
               <FormItem>
                 <FormLabel>Kondisi</FormLabel>
-                <Select onValueChange={field.onChange} defaultValue={field.value}>
-                  <FormControl>
+                <FormControl>
+                  <Select onValueChange={field.onChange} defaultValue={field.value}>
                     <SelectTrigger>
                       <SelectValue placeholder="Pilih Kondisi" />
                     </SelectTrigger>
-                  </FormControl>
-                  <SelectContent>
-                    <SelectItem value="Baik">Baik</SelectItem>
-                    <SelectItem value="Rusak Ringan">Rusak Ringan</SelectItem>
-                    <SelectItem value="Rusak Berat">Rusak Berat</SelectItem>
-                  </SelectContent>
-                </Select>
-                <FormMessage />
-              </FormItem>
-            )}
-          />
-          <FormField
-            control={form.control}
-            name="maintenance_cost"
-            render={({ field }) => (
-              <FormItem>
-                <FormLabel>Biaya Pemeliharaan (Tahunan)</FormLabel>
-                <FormControl>
-                  <Input
-                    type="number"
-                    {...field}
-                    onChange={e => field.onChange(parseInt(e.target.value) || 0)}
-                  />
+                    <SelectContent>
+                      <SelectItem value="B">Baik</SelectItem>
+                      <SelectItem value="RR">Rusak Ringan</SelectItem>
+                      <SelectItem value="RB">Rusak Berat</SelectItem>
+                    </SelectContent>
+                  </Select>
                 </FormControl>
                 <FormMessage />
               </FormItem>
             )}
           />
+
+          <FormField
+            control={form.control}
+            name="cara_pero"
+            render={({ field }) => (
+              <FormItem>
+                <FormLabel>Cara Perolehan</FormLabel>
+                <FormControl>
+                  <Select onValueChange={field.onChange} defaultValue={field.value}>
+                    <SelectTrigger><SelectValue /></SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="Pembelian">Pembelian</SelectItem>
+                      <SelectItem value="Hibah">Hibah</SelectItem>
+                      <SelectItem value="Lainnya">Lainnya</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </FormControl>
+                <FormMessage />
+              </FormItem>
+            )}
+          />
+
+          <FormField
+            control={form.control}
+            name="in_ex"
+            render={({ field }) => (
+              <FormItem>
+                <FormLabel>Intra / Extra</FormLabel>
+                <FormControl>
+                  <Select onValueChange={field.onChange} defaultValue={field.value}>
+                    <SelectTrigger><SelectValue /></SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="Intra">Intra</SelectItem>
+                      <SelectItem value="Extra">Extra</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </FormControl>
+                <FormMessage />
+              </FormItem>
+            )}
+          />
+
           <FormField
             control={form.control}
             name="expected_life"
@@ -237,7 +281,36 @@ export function AssetForm({ initialData, categories, locations, onSubmit }: Asse
               </FormItem>
             )}
           />
+
+          <FormField
+            control={form.control}
+            name="status_pgn"
+            render={({ field }) => (
+              <FormItem>
+                <FormLabel>Status Pengguna</FormLabel>
+                <FormControl>
+                  <Input {...field} />
+                </FormControl>
+                <FormMessage />
+              </FormItem>
+            )}
+          />
+
+          <FormField
+            control={form.control}
+            name="ket"
+            render={({ field }) => (
+              <FormItem>
+                <FormLabel>Keterangan</FormLabel>
+                <FormControl>
+                  <Input placeholder="Informasi tambahan..." {...field} />
+                </FormControl>
+                <FormMessage />
+              </FormItem>
+            )}
+          />
         </div>
+
         <Button type="submit" className="w-full">
           {initialData ? "Simpan Perubahan" : "Tambah Aset"}
         </Button>

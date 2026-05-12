@@ -12,27 +12,27 @@ export default function NewAssetPage() {
   const router = useRouter()
   const supabase = createClient()
   const [categories, setCategories] = useState<Category[]>([])
-  const [locations, setLocations] = useState<Location[]>([])
 
   useEffect(() => {
     async function fetchData() {
-      const { data: cats } = await supabase.from('categories').select('*')
-      const { data: locs } = await supabase.from('locations').select('*')
-
-      setCategories(cats || [{ id: '1', name: 'Perangkat IT', created_at: '' }])
-      setLocations(locs || [{ id: '1', name: 'Gedung A', created_at: '' }])
+      const { data: cats } = await supabase
+        .from('kategori_barang')
+        .select('kode_kategori, nama_kategori')
+        .order('nama_kategori')
+      
+      if (cats) setCategories(cats)
     }
     fetchData()
   }, [supabase])
 
   const handleSubmit = async (values: any) => {
-    const { error } = await supabase.from('assets').insert([values])
+    const { error } = await supabase.from('aset').insert([values])
 
     if (error) {
       toast.error(error.message)
     } else {
       toast.success("Aset berhasil ditambahkan")
-      router.push("/dashboard")
+      router.push("/dashboard/assets")
     }
   }
 
@@ -45,7 +45,6 @@ export default function NewAssetPage() {
         <CardContent>
           <AssetForm
             categories={categories}
-            locations={locations}
             onSubmit={handleSubmit}
           />
         </CardContent>
