@@ -1,0 +1,28 @@
+
+> asinsa@0.0.1 dev
+> next dev --turbopack
+
+▲ Next.js 16.1.7 (Turbopack)
+- Local:         http://localhost:3000
+- Network:       http://192.168.0.2:3000
+- Environments: .env.local
+
+✓ Starting...
+⚠ The "middleware" file convention is deprecated. Please use "proxy" instead. Learn more: https://nextjs.org/docs/messages/middleware-to-proxy
+✓ Ready in 1552ms
+ GET / 200 in 3.1s (compile: 2.5s, proxy.ts: 140ms, render: 412ms)
+ GET /login 200 in 2.5s (compile: 2.1s, proxy.ts: 11ms, render: 377ms)
+ GET /dashboard 200 in 1670ms (compile: 1324ms, proxy.ts: 11ms, render: 335ms)
+ GET /avatars/admin.jpg 404 in 676ms (compile: 586ms, render: 90ms)
+○ Compiling /dashboard/assets/[id] ...
+The width(-1) and height(-1) of chart should be greater than 0,
+       please check the style of container, or the props width(100%) and height(100%),
+       or add a minWidth(0) or minHeight(undefined) or use aspect(undefined) to control the
+       height and width.
+ GET /dashboard/assets/1 200 in 8.3s (compile: 7.5s, proxy.ts: 6ms, render: 733ms)
+ GET /avatars/admin.jpg 404 in 52ms (compile: 6ms, render: 46ms)
+ GET /dashboard/fuzzy-settings 200 in 1956ms (compile: 1618ms, proxy.ts: 17ms, render: 321ms)
+ GET /avatars/admin.jpg 404 in 75ms (compile: 5ms, render: 70ms)
+✓ Compiled in 1400ms
+✓ Compiled in 223ms
+✓ Compiled in 89ms
