@@ -44,6 +44,8 @@ interface Aset {
   in_ex: string
   ket: string
   kondisi: string | null
+  total_perbaikan?: number
+  jumlah_pengeluaran_perbaikan?: number
   kategori_barang?: { nama_kategori: string } | null
 }
 
@@ -325,6 +327,8 @@ export default function AssetsPage() {
                       <TableHead>Merek</TableHead>
                       <TableHead>Tahun</TableHead>
                       <TableHead className="text-right">Harga (Rp)</TableHead>
+                      <TableHead className="text-center">Perbaikan</TableHead>
+                      <TableHead className="text-right">Biaya Perbaikan</TableHead>
                       <TableHead>Kondisi</TableHead>
                       <TableHead className="text-right">Aksi</TableHead>
                     </TableRow>
@@ -359,6 +363,12 @@ export default function AssetsPage() {
                           </TableCell>
                           <TableCell className="text-right font-mono text-sm">
                             {asset.harga ? Number(asset.harga).toLocaleString("id-ID") : "-"}
+                          </TableCell>
+                          <TableCell className="text-center text-sm font-mono">
+                            {asset.total_perbaikan || 0}x
+                          </TableCell>
+                          <TableCell className="text-right text-sm font-mono text-primary">
+                            {asset.jumlah_pengeluaran_perbaikan ? `Rp ${asset.jumlah_pengeluaran_perbaikan.toLocaleString("id-ID")}` : "Rp 0"}
                           </TableCell>
                           <TableCell>
                             <Badge variant={kondisiBadge(asset.kondisi)}>

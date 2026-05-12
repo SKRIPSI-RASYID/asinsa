@@ -6,7 +6,6 @@ import {
   LayoutDashboardIcon,
   PackageIcon,
   TagsIcon,
-  MapPinIcon,
   SettingsIcon,
   FileTextIcon,
   CommandIcon,
@@ -48,11 +47,6 @@ const data = {
       title: "Kategori",
       url: "/dashboard/categories",
       icon: <TagsIcon />,
-    },
-    {
-      title: "Lokasi",
-      url: "/dashboard/locations",
-      icon: <MapPinIcon />,
     },
   ],
   navFuzzy: [

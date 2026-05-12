@@ -23,25 +23,24 @@ export default function DashboardPage() {
   useEffect(() => {
     async function fetchAssets() {
       const { data, error } = await supabase
-        .from('master_barang')
-        .select('*')
-        .order('id', { ascending: false }) // Aset terbaru yang dimasukkan
-        .limit(10) // Tampilkan 10 aset terbaru di dashboard
+        .from('aset')
+        .select('*, kategori_barang(nama_kategori)')
+        .order('id_aset', { ascending: false })
+        .limit(10)
 
       if (!error && data) {
-        // Map data master_barang ke format yang diharapkan DataTable
         const formattedAssets = data.map((item: any) => ({
-          id: item.id,
-          kode_barang: item.kode_barang,
+          id: item.id_aset,
+          kode_barang: item.kode_aset,
           register: item.register,
-          name: item.nama_barang,
-          category: "Peralatan & Mesin",
-          location: item.lokasi_id,
-          purchase_year: item.tgl_perolehan ? new Date(item.tgl_perolehan).getFullYear() : null,
+          name: item.kategori_barang?.nama_kategori || "Aset",
+          category: item.kategori_barang?.nama_kategori || "Peralatan & Mesin",
+          location: "-", // lokasi_id tidak ada di tabel aset, mungkin perlu join jika ada tabel relasi
+          purchase_year: item.tgl_pero ? new Date(item.tgl_pero).getFullYear() : null,
           purchase_price: item.harga,
           condition: item.kondisi === 'RR' ? 'Rusak Ringan' : (item.kondisi === 'RB' ? 'Rusak Berat' : 'Baik'),
-          fuzzy_score: null,
-          fuzzy_status: "Belum Dianalisis",
+          total_perbaikan: item.total_perbaikan,
+          biaya_perbaikan: item.jumlah_pengeluaran_perbaikan,
         }))
         setAssets(formattedAssets)
       } else {

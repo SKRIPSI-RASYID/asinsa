@@ -24,6 +24,8 @@ export interface Asset {
   id: string;
   name: string;
   code: string;
+  kode_barang?: string;
+  register?: string;
   category_id: string;
   location_id: string;
   purchase_year: number;
@@ -31,6 +33,8 @@ export interface Asset {
   condition: 'Baik' | 'Rusak Ringan' | 'Rusak Berat';
   maintenance_cost: number;
   expected_life: number;
+  total_perbaikan?: number;
+  biaya_perbaikan?: number;
   created_at: string;
 
   // Analysis results

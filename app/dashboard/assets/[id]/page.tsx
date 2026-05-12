@@ -41,9 +41,9 @@ export default function AssetDetailPage() {
   useEffect(() => {
     async function fetchAsset() {
       const { data, error } = await supabase
-        .from('master_barang')
-        .select('*')
-        .eq('id', params.id)
+        .from('aset')
+        .select('*, kategori_barang(nama_kategori)')
+        .eq('id_aset', params.id)
         .single()
 
       if (error || !data) {
@@ -62,17 +62,20 @@ export default function AssetDetailPage() {
           created_at: new Date().toISOString(),
         })
       } else {
-        const formattedAsset = {
-          id: data.id,
-          name: data.nama_barang,
-          kode_barang: data.kode_barang,
+        const formattedAsset: Asset = {
+          id: String(data.id_aset),
+          name: data.kategori_barang?.nama_kategori || "Aset",
+          code: data.kode_aset,
+          kode_barang: data.kode_aset, // alias for UI
           register: data.register,
-          category_id: String(data.kelompok || 1),
-          location_id: data.lokasi_id || "-",
-          purchase_year: data.tgl_perolehan ? new Date(data.tgl_perolehan).getFullYear() : 0,
+          category_id: data.kode_kategori,
+          location_id: "-", // no lokasi_id in aset table
+          purchase_year: data.tgl_pero ? new Date(data.tgl_pero).getFullYear() : 0,
           purchase_price: data.harga || 0,
           condition: data.kondisi === 'RR' ? 'Rusak Ringan' : (data.kondisi === 'RB' ? 'Rusak Berat' : 'Baik'),
-          maintenance_cost: 0,
+          maintenance_cost: data.jumlah_pengeluaran_perbaikan || 0,
+          total_perbaikan: data.total_perbaikan || 0,
+          biaya_perbaikan: data.jumlah_pengeluaran_perbaikan || 0,
           expected_life: 5,
           created_at: data.created_at || new Date().toISOString(),
         }
@@ -104,15 +107,15 @@ export default function AssetDetailPage() {
     setTimeout(async () => {
       const result = calculateAssetEligibility(kondisiScore, age, costPercent)
 
-      // Update in Supabase master_barang
+      // Update in Supabase aset
       const { error } = await supabase
-        .from('master_barang')
+        .from('aset')
         .update({
           fuzzy_score: result.score,
           fuzzy_status: result.status,
           last_analyzed_at: new Date().toISOString()
         })
-        .eq('id', asset.id)
+        .eq('id_aset', asset.id)
 
       setAnalysisResult(result)
       setIsAnalyzing(false)
@@ -174,8 +177,12 @@ export default function AssetDetailPage() {
                 <p className="font-medium">Rp {asset.purchase_price.toLocaleString()}</p>
               </div>
               <div className="space-y-1">
-                <span className="text-muted-foreground">Biaya Pemeliharaan</span>
-                <p className="font-medium">Rp {asset.maintenance_cost.toLocaleString()}</p>
+                <span className="text-muted-foreground">Total Perbaikan</span>
+                <p className="font-medium">{asset.total_perbaikan || 0} Kali</p>
+              </div>
+              <div className="space-y-1">
+                <span className="text-muted-foreground">Total Biaya Perbaikan</span>
+                <p className="font-medium text-primary">Rp {asset.biaya_perbaikan?.toLocaleString("id-ID") || 0}</p>
               </div>
               <div className="space-y-1">
                 <span className="text-muted-foreground">Kondisi</span>

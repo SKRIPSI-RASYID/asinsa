@@ -69,6 +69,22 @@ const columns: ColumnDef<any>[] = [
     ),
   },
   {
+    accessorKey: "total_perbaikan",
+    header: "Perbaikan",
+    cell: ({ row }) => (
+      <span className="font-mono text-sm">{row.original.total_perbaikan || 0}x</span>
+    ),
+  },
+  {
+    accessorKey: "biaya_perbaikan",
+    header: "Biaya Perbaikan",
+    cell: ({ row }) => (
+      <span className="font-mono text-sm">
+        {row.original.biaya_perbaikan ? `Rp ${row.original.biaya_perbaikan.toLocaleString("id-ID")}` : "Rp 0"}
+      </span>
+    ),
+  },
+  {
     accessorKey: "fuzzy_status",
     header: "Status Kelayakan",
     cell: ({ row }) => (
