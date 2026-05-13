@@ -69,6 +69,52 @@ export default function FuzzySettingsPage() {
           </CardContent>
         </Card>
 
+        <Card>
+          <CardHeader>
+            <CardTitle>Variabel: Total Perbaikan</CardTitle>
+            <CardDescription>Frekuensi perbaikan (Kali)</CardDescription>
+          </CardHeader>
+          <CardContent className="space-y-4">
+            <div className="grid grid-cols-2 gap-4">
+              <div className="space-y-2">
+                <Label>Jarang</Label>
+                <Input defaultValue="0 - 2" />
+              </div>
+              <div className="space-y-2">
+                <Label>Normal</Label>
+                <Input defaultValue="1 - 4" />
+              </div>
+              <div className="space-y-2">
+                <Label>Sering</Label>
+                <Input defaultValue="3 - 10+" />
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+
+        <Card>
+          <CardHeader>
+            <CardTitle>Variabel: Biaya Perbaikan</CardTitle>
+            <CardDescription>Persentase terhadap harga perolehan (%)</CardDescription>
+          </CardHeader>
+          <CardContent className="space-y-4">
+            <div className="grid grid-cols-2 gap-4">
+              <div className="space-y-2">
+                <Label>Rendah</Label>
+                <Input defaultValue="0 - 30" />
+              </div>
+              <div className="space-y-2">
+                <Label>Sedang</Label>
+                <Input defaultValue="20 - 60" />
+              </div>
+              <div className="space-y-2">
+                <Label>Tinggi</Label>
+                <Input defaultValue="50 - 100+" />
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+
         <Card className="md:col-span-2">
           <CardHeader>
             <CardTitle>Basis Aturan (IF-THEN)</CardTitle>
@@ -76,9 +122,15 @@ export default function FuzzySettingsPage() {
           </CardHeader>
           <CardContent>
             <div className="space-y-2 text-sm">
-              <div className="p-2 bg-muted rounded">IF Kondisi <b>Rusak Berat</b> OR (Umur <b>Lama</b> AND Biaya <b>Tinggi</b>) THEN <b>Layak Hapus</b></div>
-              <div className="p-2 bg-muted rounded">IF Kondisi <b>Baik</b> AND Umur <b>Baru</b> THEN <b>Tidak Layak Hapus</b></div>
-              <div className="p-2 bg-muted rounded">ELSE <b>Dipertimbangkan</b></div>
+              <div className="p-2 bg-muted rounded border-l-4 border-red-500">
+                IF Kondisi <b>Rusak Berat</b> OR (Umur <b>Lama</b> AND Biaya <b>Tinggi</b>) OR (Total Perbaikan <b>Sering</b>) THEN <b>Layak Hapus</b>
+              </div>
+              <div className="p-2 bg-muted rounded border-l-4 border-green-500">
+                IF Kondisi <b>Baik</b> AND Umur <b>Baru</b> AND Biaya <b>Rendah</b> THEN <b>Tidak Layak Hapus</b>
+              </div>
+              <div className="p-2 bg-muted rounded border-l-4 border-yellow-500">
+                ELSE <b>Dipertimbangkan</b>
+              </div>
             </div>
           </CardContent>
         </Card>

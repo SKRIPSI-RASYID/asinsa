@@ -56,6 +56,11 @@ const data = {
       icon: <ZapIcon />,
     },
     {
+      title: "Riwayat Evaluasi",
+      url: "/dashboard/evaluation/history",
+      icon: <FileTextIcon />,
+    },
+    {
       title: "Parameter Fuzzy",
       url: "/dashboard/fuzzy-settings",
       icon: <SettingsIcon />,

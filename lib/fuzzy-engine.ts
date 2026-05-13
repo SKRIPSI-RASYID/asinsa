@@ -55,33 +55,47 @@ export function getBiayaMembership(x: number): Membership[] {
   ];
 }
 
+export function getTotalPerbaikanMembership(x: number): Membership[] {
+  return [
+    { name: "Jarang", value: trapmf(x, -1, 0, 1, 3) },
+    { name: "Normal", value: trimf(x, 1, 3, 5) },
+    { name: "Sering", value: trapmf(x, 3, 5, 10, 101) },
+  ];
+}
+
 // 2. Inference Rules
-export function evaluateRules(kondisi: number, umur: number, biaya: number) {
+export function evaluateRules(kondisi: number, umur: number, biaya: number, totalPerbaikan: number) {
   const muKondisi = getKondisiMembership(kondisi);
   const muUmur = getUmurMembership(umur);
   const muBiaya = getBiayaMembership(biaya);
+  const muTotal = getTotalPerbaikanMembership(totalPerbaikan);
 
   const rules: { output: string; weight: number }[] = [];
 
   muKondisi.forEach((k) => {
     muUmur.forEach((u) => {
       muBiaya.forEach((b) => {
-        let output = "Dipertimbangkan";
-        const weight = Math.min(k.value, u.value, b.value);
+        muTotal.forEach((t) => {
+          let output = "Dipertimbangkan";
+          const weight = Math.min(k.value, u.value, b.value, t.value);
 
-        if (weight > 0) {
-          if (k.name === "Rusak Berat" || (u.name === "Lama" && b.name === "Tinggi")) {
-            output = "Layak Hapus";
-          } else if (k.name === "Baik" && u.name === "Baru") {
-            output = "Tidak Layak Hapus";
+          if (weight > 0) {
+            // Priority 1: High frequency or very bad condition
+            if (k.name === "Rusak Berat" || t.name === "Sering" || (u.name === "Lama" && b.name === "Tinggi")) {
+              output = "Layak Hapus";
+            } 
+            // Priority 2: Good condition and new
+            else if (k.name === "Baik" && u.name === "Baru" && t.name === "Jarang") {
+              output = "Tidak Layak Hapus";
+            }
+            rules.push({ output, weight });
           }
-          rules.push({ output, weight });
-        }
+        });
       });
     });
   });
 
-  // If no rules fired (should not happen with overlap), default to Dipertimbangkan with very low weight
+  // If no rules fired, default to Dipertimbangkan
   if (rules.length === 0) {
     rules.push({ output: "Dipertimbangkan", weight: 0.001 });
   }
@@ -112,8 +126,13 @@ export function defuzzify(rules: { output: string; weight: number }[]): number {
   return denominator === 0 ? 50 : numerator / denominator;
 }
 
-export function calculateAssetEligibility(kondisiScore: number, umur: number, biayaPercent: number) {
-  const rules = evaluateRules(kondisiScore, umur, biayaPercent);
+export function calculateAssetEligibility(
+  kondisiScore: number, 
+  umur: number, 
+  biayaPercent: number,
+  totalPerbaikan: number = 0
+) {
+  const rules = evaluateRules(kondisiScore, umur, biayaPercent, totalPerbaikan);
   const score = defuzzify(rules);
 
   let status: "Layak Hapus" | "Dipertimbangkan" | "Tidak Layak Hapus" = "Dipertimbangkan";
