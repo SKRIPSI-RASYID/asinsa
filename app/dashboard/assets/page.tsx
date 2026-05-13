@@ -16,8 +16,8 @@ import {
   Table, TableBody, TableCell, TableHead, TableHeader, TableRow,
 } from "@/components/ui/table"
 import {
-  Sheet, SheetContent, SheetDescription, SheetHeader, SheetTitle,
-} from "@/components/ui/sheet"
+  Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle,
+} from "@/components/ui/dialog"
 import {
   Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
 } from "@/components/ui/select"
@@ -354,27 +354,37 @@ export default function AssetsPage() {
         </CardContent>
       </Card>
 
-      {/* ─── Add / Edit Sheet ─────────────────────────────────────────────── */}
-      <Sheet open={sheetOpen} onOpenChange={setSheetOpen}>
-        <SheetContent className="w-full sm:max-w-xl overflow-y-auto">
-          <SheetHeader>
-            <SheetTitle>{editTarget ? "Edit Asset" : "Tambah Asset Baru"}</SheetTitle>
-            <SheetDescription>
-              {editTarget
-                ? `Perbarui data aset ${editTarget.kode_aset}`
-                : "Isi data aset baru. Field bertanda * wajib diisi."}
-            </SheetDescription>
-          </SheetHeader>
 
-          <div className="mt-6">
-            <AssetForm
-              categories={categories}
-              initialData={editTarget || undefined}
-              onSubmit={handleSave}
-            />
+      {/* ─── Add / Edit Dialog ─────────────────────────────────────────────── */}
+      <Dialog open={sheetOpen} onOpenChange={setSheetOpen}>
+        <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto p-0 border-none shadow-2xl">
+          <div className="flex flex-col h-full">
+            <div className="p-8 border-b bg-primary/5">
+              <DialogHeader>
+                <DialogTitle className="text-3xl font-extrabold flex items-center gap-3">
+                  <div className="p-2 bg-primary text-primary-foreground rounded-lg">
+                    {editTarget ? <PencilIcon className="h-6 w-6" /> : <PlusIcon className="h-6 w-6" />}
+                  </div>
+                  {editTarget ? "Perbarui Data Aset" : "Pendaftaran Aset Baru"}
+                </DialogTitle>
+                <DialogDescription className="text-base mt-2">
+                  {editTarget
+                    ? `Silakan perbarui rincian informasi untuk aset dengan kode ${editTarget.kode_aset}.`
+                    : "Lengkapi seluruh informasi teknis dan administratif untuk menambahkan aset baru ke dalam inventaris."}
+                </DialogDescription>
+              </DialogHeader>
+            </div>
+
+            <div className="p-8 bg-background">
+              <AssetForm
+                categories={categories}
+                initialData={editTarget || undefined}
+                onSubmit={handleSave}
+              />
+            </div>
           </div>
-        </SheetContent>
-      </Sheet>
+        </DialogContent>
+      </Dialog>
     </div>
   )
 }
