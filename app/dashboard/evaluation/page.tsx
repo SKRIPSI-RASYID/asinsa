@@ -50,24 +50,43 @@ export default function EvaluationPage() {
 
   const fetchAssets = async () => {
     setLoading(true)
-    const { data, error } = await supabase
-      .from('aset')
-      .select('*, kategori_barang(nama_kategori)')
-      .order('id_aset', { ascending: false })
+    const BATCH_SIZE = 1000
+    let allAssets: any[] = []
+    let from = 0
+    let hasMore = true
 
-    if (!error && data) {
-      const formattedAssets = data.map((item: any) => ({
-        ...item,
-        id: item.id_aset,
-        name: item.kategori_barang?.nama_kategori || "Aset",
-        condition: item.kondisi === 'RR' ? 'Rusak Ringan' : (item.kondisi === 'RB' ? 'Rusak Berat' : 'Baik'),
-        purchase_year: item.tgl_pero ? new Date(item.tgl_pero).getFullYear() : 0,
-        purchase_price: Number(item.harga) || 0,
-        maintenance_cost: Number(item.jumlah_pengeluaran_perbaikan) || 0,
-        total_repairs: Number(item.total_perbaikan) || 0,
-      }))
-      setAssets(formattedAssets)
+    while (hasMore) {
+      const { data, error } = await supabase
+        .from('aset')
+        .select('*, kategori_barang(nama_kategori)')
+        .order('id_aset', { ascending: false })
+        .range(from, from + BATCH_SIZE - 1)
+
+      if (error) {
+        console.error("Fetch assets error:", error)
+        break
+      }
+
+      if (data && data.length > 0) {
+        const formatted = data.map((item: any) => ({
+          ...item,
+          id: item.id_aset,
+          name: item.kategori_barang?.nama_kategori || "Aset",
+          condition: item.kondisi === 'RR' ? 'Rusak Ringan' : (item.kondisi === 'RB' ? 'Rusak Berat' : 'Baik'),
+          purchase_year: item.tgl_pero ? new Date(item.tgl_pero).getFullYear() : 0,
+          purchase_price: Number(item.harga) || 0,
+          maintenance_cost: Number(item.jumlah_pengeluaran_perbaikan) || 0,
+          total_repairs: Number(item.total_perbaikan) || 0,
+        }))
+        allAssets = [...allAssets, ...formatted]
+        from += BATCH_SIZE
+        hasMore = data.length === BATCH_SIZE
+      } else {
+        hasMore = false
+      }
     }
+    
+    setAssets(allAssets)
     setLoading(false)
   }
 
@@ -130,12 +149,12 @@ export default function EvaluationPage() {
     const total = assets.length
     const updatedAssets = [...assets]
 
-    // Process in chunks to avoid blocking and update UI
-    const chunkSize = 20
+    // Process in chunks to balance performance and request overhead
+    const chunkSize = 50
     for (let i = 0; i < total; i += chunkSize) {
       const chunk = updatedAssets.slice(i, i + chunkSize)
       
-      const results = await Promise.all(chunk.map(async (asset) => {
+      const chunkResults = chunk.map(asset => {
         // Map scores
         const kondisiScore = asset.condition === "Baik" ? 10 : asset.condition === "Rusak Ringan" ? 50 : 90
         const age = new Date().getFullYear() - asset.purchase_year
@@ -144,26 +163,20 @@ export default function EvaluationPage() {
         
         const result = calculateAssetEligibility(kondisiScore, age, costPercent, totalRepairs)
         
-        const { error } = await supabase
-          .from('aset')
-          .update({
-            fuzzy_score: result.score,
-            fuzzy_status: result.status,
-            last_analyzed_at: new Date().toISOString()
-          })
-          .eq('id_aset', asset.id_aset)
-
         if (result.status === "Layak Hapus") countLayak++
         else if (result.status === "Tidak Layak Hapus") countTidakLayak++
         else countDipertimbangkan++
 
-        return { 
-          id_aset: asset.id_aset, 
-          error,
+        const timestamp = new Date().toISOString()
+        
+        return {
+          id_aset: asset.id_aset,
           update: {
+            id_aset: asset.id_aset,
+            kode_aset: asset.kode_aset, // Added to satisfy NOT NULL constraint
             fuzzy_score: result.score,
             fuzzy_status: result.status,
-            last_analyzed_at: new Date().toISOString()
+            last_analyzed_at: timestamp
           },
           history: {
             id_aset: asset.id_aset,
@@ -176,28 +189,43 @@ export default function EvaluationPage() {
             total_perbaikan: totalRepairs
           }
         }
-      }))
+      })
 
-      const firstError = results.find(r => r.error)?.error
+      // 1. Concurrent Update Assets within Chunk
+      const updatePromises = chunkResults.map(async (r) => {
+        const { error } = await supabase
+          .from('aset')
+          .update({
+            fuzzy_score: r.update.fuzzy_score,
+            fuzzy_status: r.update.fuzzy_status,
+            last_analyzed_at: r.update.last_analyzed_at
+          })
+          .eq('id_aset', r.id_aset)
+        return { id_aset: r.id_aset, error }
+      })
+
+      const updateResults = await Promise.all(updatePromises)
+      const firstError = updateResults.find(r => r.error)?.error
+      
       if (firstError) {
-        console.error("Batch update error:", firstError)
-        toast.error(`Gagal menyimpan data: ${firstError.message}`)
+        console.error("Asset update error:", firstError)
+        toast.error(`Gagal update aset: ${firstError.message}`)
         setIsAnalyzing(false)
         return
       }
 
-      // Save to history table
-      const historyRecords = results.map(r => r.history)
+      // 2. Bulk Insert History
+      const historyRecords = chunkResults.map(r => r.history)
       const { error: historyError } = await supabase
         .from('history_evaluasi')
         .insert(historyRecords)
       
       if (historyError) {
-        console.error("History saving error:", historyError)
+        console.error("Bulk history error:", historyError)
       }
 
-      // Update local state for immediate feedback
-      results.forEach(r => {
+      // 3. Update local state
+      chunkResults.forEach(r => {
         const index = updatedAssets.findIndex(a => a.id_aset === r.id_aset)
         if (index !== -1) {
           updatedAssets[index] = { ...updatedAssets[index], ...r.update }

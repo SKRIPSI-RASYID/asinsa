@@ -35,12 +35,25 @@ import {
   TableHeader, 
   TableRow 
 } from "@/components/ui/table"
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+  AlertDialogTrigger,
+} from "@/components/ui/alert-dialog"
 import { useRouter } from "next/navigation"
 import Link from "next/link"
 
 export default function EvaluationHistoryPage() {
   const [batches, setBatches] = useState<any[]>([])
   const [loading, setLoading] = useState(true)
+  const [isDeleting, setIsDeleting] = useState(false)
+  const [isDialogOpen, setIsDialogOpen] = useState(false)
   const router = useRouter()
   
   const supabase = createClient()
@@ -65,19 +78,38 @@ export default function EvaluationHistoryPage() {
   }, [])
 
   const clearHistory = async () => {
-    if (!confirm("Apakah Anda yakin ingin menghapus semua riwayat evaluasi?")) return
+    setIsDeleting(true)
     
-    const { error } = await supabase
+    // First, clear individual history items
+    // Using created_at filter is more reliable for "delete all"
+    const { error: historyError } = await supabase
+      .from('history_evaluasi')
+      .delete()
+      .not('created_at', 'is', null)
+
+    if (historyError) {
+      console.error("Delete history error:", historyError)
+      toast.error("Gagal menghapus detail riwayat: " + historyError.message)
+      setIsDeleting(false)
+      return
+    }
+
+    // Then, clear batch summaries
+    const { error: batchError } = await supabase
       .from('batch_evaluasi')
       .delete()
-      .neq('id', '00000000-0000-0000-0000-000000000000') // delete all
+      .not('created_at', 'is', null)
 
-    if (!error) {
-      toast.success("Riwayat berhasil dihapus")
+    if (!batchError) {
+      toast.success("Seluruh riwayat berhasil dihapus")
       setBatches([])
+      setIsDialogOpen(false)
     } else {
-      toast.error("Gagal menghapus riwayat")
+      console.error("Delete batch error:", batchError)
+      toast.error("Gagal menghapus ringkasan riwayat: " + batchError.message)
     }
+    
+    setIsDeleting(false)
   }
 
   return (
@@ -93,9 +125,33 @@ export default function EvaluationHistoryPage() {
           </p>
         </div>
         <div className="ml-auto">
-          <Button variant="destructive" size="sm" onClick={clearHistory} disabled={batches.length === 0}>
-            <Trash2Icon className="mr-2 h-4 w-4" /> Hapus Semua
-          </Button>
+          <AlertDialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
+            <AlertDialogTrigger asChild>
+              <Button variant="destructive" size="sm" disabled={batches.length === 0 || loading}>
+                <Trash2Icon className="mr-2 h-4 w-4" /> Hapus Semua
+              </Button>
+            </AlertDialogTrigger>
+            <AlertDialogContent>
+              <AlertDialogHeader>
+                <AlertDialogTitle>Hapus Seluruh Riwayat?</AlertDialogTitle>
+                <AlertDialogDescription>
+                  Tindakan ini akan menghapus permanen seluruh log evaluasi dan data batch yang tersimpan. 
+                  Data aset tidak akan terpengaruh, namun Anda akan kehilangan data historis analisis ini.
+                </AlertDialogDescription>
+              </AlertDialogHeader>
+              <AlertDialogFooter>
+                <AlertDialogCancel>Batal</AlertDialogCancel>
+                <AlertDialogAction 
+                  onClick={clearHistory}
+                  className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+                  disabled={isDeleting}
+                >
+                  {isDeleting ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : null}
+                  Ya, Hapus Semua
+                </AlertDialogAction>
+              </AlertDialogFooter>
+            </AlertDialogContent>
+          </AlertDialog>
         </div>
       </div>
 
