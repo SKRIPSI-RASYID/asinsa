@@ -1,6 +1,6 @@
 "use client"
 
-import { useState, useEffect } from "react"
+import { useState, useEffect, useMemo } from "react"
 import { useParams, useRouter } from "next/navigation"
 import {
   ArrowLeft,
@@ -8,7 +8,7 @@ import {
   FileDownIcon,
   AlertTriangleIcon,
   CheckCircleIcon,
-  XCircleIcon,
+  Wrench,
   Loader2
 } from "lucide-react"
 import { Button } from "@/components/ui/button"
@@ -22,7 +22,7 @@ import {
 import { Badge } from "@/components/ui/badge"
 import { Separator } from "@/components/ui/separator"
 import { FuzzyMembershipChart } from "@/components/fuzzy-membership-chart"
-import { calculateAssetEligibility } from "@/lib/fuzzy-engine"
+import { calculateAssetEligibility, getKondisiMembership, getUmurMembership, getBiayaMembership, getTotalPerbaikanMembership } from "@/lib/fuzzy-engine"
 import { generateDisposalRecommendation } from "@/lib/pdf-export"
 import { toast } from "sonner"
 import { Asset } from "@/types"
@@ -37,6 +37,48 @@ export default function AssetDetailPage() {
   const [loading, setLoading] = useState(true)
   const [isAnalyzing, setIsAnalyzing] = useState(false)
   const [analysisResult, setAnalysisResult] = useState<{score: number, status: string} | null>(null)
+
+  // Calculate fuzzy membership details for explainability
+  const fuzzyBreakdown = useMemo(() => {
+    if (!asset) return null
+
+    // Kondisi: Baik=10, Rusak Ringan=50, Rusak Berat=90
+    const kondisiScore = asset.condition === "Baik" ? 10 : asset.condition === "Rusak Ringan" ? 50 : 90
+    
+    // Umur: current year - purchase year (capped at 10)
+    const age = new Date().getFullYear() - asset.purchase_year
+    const cappedAge = Math.min(Math.max(age, 0), 10)
+    
+    // Biaya: (maintenance / price) * 100 (capped at 100)
+    const costPercent = asset.purchase_price > 0 ? (asset.maintenance_cost / asset.purchase_price) * 100 : 0
+    const cappedCost = Math.min(Math.max(costPercent, 0), 100)
+    
+    // Total Perbaikan: (capped at 10)
+    const repairs = asset.total_perbaikan || 0
+    const cappedRepairs = Math.min(Math.max(repairs, 0), 10)
+
+    return {
+      kondisi: {
+        score: kondisiScore,
+        memberships: getKondisiMembership(kondisiScore)
+      },
+      umur: {
+        score: age,
+        capped: cappedAge,
+        memberships: getUmurMembership(cappedAge)
+      },
+      biaya: {
+        score: costPercent,
+        capped: cappedCost,
+        memberships: getBiayaMembership(cappedCost)
+      },
+      perbaikan: {
+        score: repairs,
+        capped: cappedRepairs,
+        memberships: getTotalPerbaikanMembership(cappedRepairs)
+      }
+    }
+  }, [asset])
 
   useEffect(() => {
     async function fetchAsset() {
@@ -101,7 +143,13 @@ export default function AssetDetailPage() {
     const costPercent = asset.purchase_price > 0 ? (asset.maintenance_cost / asset.purchase_price) * 100 : 0
 
     setTimeout(async () => {
-      const result = calculateAssetEligibility(kondisiScore, age, costPercent)
+      const result = calculateAssetEligibility(kondisiScore, age, costPercent, asset.total_perbaikan || 0)
+
+      if (result.status === null || result.score === null) {
+        setIsAnalyzing(false)
+        toast.error("Nilai parameter aset berada di luar rentang fungsi keanggotaan fuzzy. Aset tidak dapat dinilai.")
+        return
+      }
 
       // Update in Supabase aset
       const { error } = await supabase
@@ -113,7 +161,7 @@ export default function AssetDetailPage() {
         })
         .eq('id_aset', asset.id)
 
-      setAnalysisResult(result)
+      setAnalysisResult(result as any)
       setIsAnalyzing(false)
       toast.success("Analisis selesai")
     }, 1500)
@@ -204,6 +252,102 @@ export default function AssetDetailPage() {
               <FuzzyMembershipChart type="output" />
             </CardContent>
           </Card>
+
+          <Card>
+            <CardHeader>
+              <CardTitle>Hasil Pengukuran Variabel Fuzzy (Fuzzifikasi)</CardTitle>
+              <CardDescription>Detail derajat keanggotaan (membership degree) untuk masing-masing variabel input berdasarkan PP 27/2014 & Standar BMN/BMD.</CardDescription>
+            </CardHeader>
+            <CardContent className="space-y-6">
+              {fuzzyBreakdown && (
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                  {/* Kondisi Aset */}
+                  <div className="space-y-3 p-4 rounded-xl border bg-muted/30">
+                    <div className="flex justify-between items-center">
+                      <span className="font-semibold text-sm">1. Kondisi Aset</span>
+                      <Badge variant="outline" className="font-mono text-xs">Nilai Input: {fuzzyBreakdown.kondisi.score}</Badge>
+                    </div>
+                    <div className="space-y-2">
+                      {fuzzyBreakdown.kondisi.memberships.map((m) => (
+                        <div key={m.name} className="space-y-1">
+                          <div className="flex justify-between text-xs font-medium">
+                            <span className="text-muted-foreground">{m.name}</span>
+                            <span className="font-mono font-bold text-primary">{m.value.toFixed(4)}</span>
+                          </div>
+                          <div className="h-2 w-full bg-muted rounded-full overflow-hidden">
+                            <div className="h-full bg-emerald-500 transition-all duration-500" style={{ width: `${m.value * 100}%` }} />
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+
+                  {/* Umur Ekonomis */}
+                  <div className="space-y-3 p-4 rounded-xl border bg-muted/30">
+                    <div className="flex justify-between items-center">
+                      <span className="font-semibold text-sm">2. Umur Ekonomis</span>
+                      <Badge variant="outline" className="font-mono text-xs">Nilai Input: {fuzzyBreakdown.umur.score} Tahun</Badge>
+                    </div>
+                    <div className="space-y-2">
+                      {fuzzyBreakdown.umur.memberships.map((m) => (
+                        <div key={m.name} className="space-y-1">
+                          <div className="flex justify-between text-xs font-medium">
+                            <span className="text-muted-foreground">{m.name}</span>
+                            <span className="font-mono font-bold text-primary">{m.value.toFixed(4)}</span>
+                          </div>
+                          <div className="h-2 w-full bg-muted rounded-full overflow-hidden">
+                            <div className="h-full bg-blue-500 transition-all duration-500" style={{ width: `${m.value * 100}%` }} />
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+
+                  {/* Biaya Pemeliharaan */}
+                  <div className="space-y-3 p-4 rounded-xl border bg-muted/30">
+                    <div className="flex justify-between items-center">
+                      <span className="font-semibold text-sm">3. Rasio Biaya Perbaikan</span>
+                      <Badge variant="outline" className="font-mono text-xs">Nilai Input: {fuzzyBreakdown.biaya.score.toFixed(2)}%</Badge>
+                    </div>
+                    <div className="space-y-2">
+                      {fuzzyBreakdown.biaya.memberships.map((m) => (
+                        <div key={m.name} className="space-y-1">
+                          <div className="flex justify-between text-xs font-medium">
+                            <span className="text-muted-foreground">{m.name}</span>
+                            <span className="font-mono font-bold text-primary">{m.value.toFixed(4)}</span>
+                          </div>
+                          <div className="h-2 w-full bg-muted rounded-full overflow-hidden">
+                            <div className="h-full bg-amber-500 transition-all duration-500" style={{ width: `${m.value * 100}%` }} />
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+
+                  {/* Total Perbaikan */}
+                  <div className="space-y-3 p-4 rounded-xl border bg-muted/30">
+                    <div className="flex justify-between items-center">
+                      <span className="font-semibold text-sm">4. Frekuensi Perbaikan</span>
+                      <Badge variant="outline" className="font-mono text-xs">Nilai Input: {fuzzyBreakdown.perbaikan.score}x Kejadian</Badge>
+                    </div>
+                    <div className="space-y-2">
+                      {fuzzyBreakdown.perbaikan.memberships.map((m) => (
+                        <div key={m.name} className="space-y-1">
+                          <div className="flex justify-between text-xs font-medium">
+                            <span className="text-muted-foreground">{m.name}</span>
+                            <span className="font-mono font-bold text-primary">{m.value.toFixed(4)}</span>
+                          </div>
+                          <div className="h-2 w-full bg-muted rounded-full overflow-hidden">
+                            <div className="h-full bg-rose-500 transition-all duration-500" style={{ width: `${m.value * 100}%` }} />
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                </div>
+              )}
+            </CardContent>
+          </Card>
         </div>
 
         <div className="space-y-6">
@@ -222,10 +366,12 @@ export default function AssetDetailPage() {
                   <div className="flex justify-center">
                     {analysisResult.status === "Layak Hapus" ? (
                       <CheckCircleIcon className="h-12 w-12 text-green-500" />
-                    ) : analysisResult.status === "Dipertimbangkan" ? (
+                    ) : analysisResult.status === "Dilelang" ? (
                       <AlertTriangleIcon className="h-12 w-12 text-yellow-500" />
+                    ) : analysisResult.status === "Diperbaiki" ? (
+                      <Wrench className="h-12 w-12 text-blue-500" />
                     ) : (
-                      <XCircleIcon className="h-12 w-12 text-red-500" />
+                      <CheckCircleIcon className="h-12 w-12 text-teal-500" />
                     )}
                   </div>
                   <div>

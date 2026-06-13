@@ -88,7 +88,7 @@ export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
                 </div>
                 <div className="grid flex-1 text-left text-sm leading-tight">
                   <span className="truncate font-semibold text-base">ASINSA</span>
-                  <span className="truncate text-xs opacity-70">Aset Diskominsa</span>
+                  <span className="truncate text-xs opacity-60">Aset Diskominsa</span>
                 </div>
               </Link>
             </SidebarMenuButton>

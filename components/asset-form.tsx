@@ -60,7 +60,7 @@ interface AssetFormProps {
 }
 
 export function AssetForm({ initialData, categories, onSubmit }: AssetFormProps) {
-  const form = useForm<AssetFormValues>({
+  const form = useForm<any>({
     resolver: zodResolver(assetSchema),
     defaultValues: initialData ? {
       kode_aset: initialData.kode_aset || "",

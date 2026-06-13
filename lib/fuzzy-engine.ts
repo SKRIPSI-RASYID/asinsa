@@ -30,12 +30,12 @@ export function trapmf(x: number, a: number, b: number, c: number, d: number): n
   return 0;
 }
 
-// 1. Fuzzification
+// 1. Fuzzification (Aligned with Indonesian BMN/BMD guidelines & 30%-50% BMBP rules)
 export function getKondisiMembership(x: number): Membership[] {
   return [
-    { name: "Baik", value: trapmf(x, -1, 0, 30, 50) },
+    { name: "Baik", value: trapmf(x, -1, 0, 30, 45) },
     { name: "Rusak Ringan", value: trimf(x, 30, 50, 70) },
-    { name: "Rusak Berat", value: trapmf(x, 50, 70, 100, 101) },
+    { name: "Rusak Berat", value: trapmf(x, 55, 75, 100, 101) },
   ];
 }
 
@@ -43,15 +43,15 @@ export function getUmurMembership(x: number): Membership[] {
   return [
     { name: "Baru", value: trapmf(x, -1, 0, 3, 5) },
     { name: "Sedang", value: trimf(x, 3, 5, 7) },
-    { name: "Lama", value: trapmf(x, 5, 7, 10, 11) },
+    { name: "Lama", value: trapmf(x, 5, 7, 10, 11) }, // Useful life ended (>7 years)
   ];
 }
 
 export function getBiayaMembership(x: number): Membership[] {
   return [
-    { name: "Rendah", value: trapmf(x, -1, 0, 20, 40) },
-    { name: "Sedang", value: trimf(x, 20, 50, 80) },
-    { name: "Tinggi", value: trapmf(x, 60, 80, 100, 101) },
+    { name: "Rendah", value: trapmf(x, -1, 0, 20, 30) }, // Under BMBP lower limit (30%)
+    { name: "Sedang", value: trimf(x, 20, 35, 50) },     // Between 30% and 50%
+    { name: "Tinggi", value: trapmf(x, 40, 50, 100, 101) }, // Exceeds legal BMBP limit (>50%)
   ];
 }
 
@@ -63,7 +63,7 @@ export function getTotalPerbaikanMembership(x: number): Membership[] {
   ];
 }
 
-// 2. Inference Rules
+// 2. Inference Rules (PP 27/2014 & BMN/BMD Asset Logic)
 export function evaluateRules(kondisi: number, umur: number, biaya: number, totalPerbaikan: number) {
   const muKondisi = getKondisiMembership(kondisi);
   const muUmur = getUmurMembership(umur);
@@ -76,17 +76,45 @@ export function evaluateRules(kondisi: number, umur: number, biaya: number, tota
     muUmur.forEach((u) => {
       muBiaya.forEach((b) => {
         muTotal.forEach((t) => {
-          let output = "Dipertimbangkan";
+          let output = "Diperbaiki"; // Default action is to repair and keep
           const weight = Math.min(k.value, u.value, b.value, t.value);
 
           if (weight > 0) {
-            // Priority 1: High frequency or very bad condition
-            if (k.name === "Rusak Berat" || t.name === "Sering" || (u.name === "Lama" && b.name === "Tinggi")) {
+            // 1. LAYAK HAPUS (Disposal/Penghapusan):
+            // - Asset is completely broken (Kondisi "Rusak Berat")
+            // - Or useful life is expired ("Lama") and needs uneconomical repair costs ("Tinggi" >50% BMBP)
+            // - Or high maintenance frequency ("Sering") and high costs ("Tinggi")
+            if (
+              k.name === "Rusak Berat" || 
+              (u.name === "Lama" && b.name === "Tinggi") ||
+              (t.name === "Sering" && b.name === "Tinggi")
+            ) {
               output = "Layak Hapus";
             } 
-            // Priority 2: Good condition and new
-            else if (k.name === "Baik" && u.name === "Baru" && t.name === "Jarang") {
-              output = "Tidak Layak Hapus";
+            // 2. DILELANG (Auction/Penjualan):
+            // - Useful life is expired ("Lama") but asset is still "Baik" or "Rusak Ringan" with manageable repair costs (generates PNBP/state revenue)
+            // - Or asset is middle-aged ("Sedang") but has high repair costs ("Tinggi") while not completely broken (better to auction than to repair)
+            else if (
+              (u.name === "Lama" && (k.name === "Baik" || k.name === "Rusak Ringan") && b.name !== "Tinggi") ||
+              (u.name === "Sedang" && b.name === "Tinggi" && k.name !== "Rusak Berat")
+            ) {
+              output = "Dilelang";
+            }
+            // 3. TIDAK MEMERLUKAN TINDAKAN (No Action Required):
+            // - Condition is still Good ("Baik") and asset is not yet expired ("Baru" or "Sedang")
+            // - And repair cost is low ("Rendah") and repairs are infrequent ("Jarang" or "Normal")
+            else if (
+              k.name === "Baik" &&
+              u.name !== "Lama" &&
+              b.name === "Rendah" &&
+              t.name !== "Sering"
+            ) {
+              output = "Tidak Memerlukan Tindakan";
+            }
+            // 4. DIPERBAIKI (Retain & Repair / Maintenance):
+            // - Young or middle-aged assets in "Baik" or "Rusak Ringan" with some issues, medium cost, or normal repairs
+            else {
+              output = "Diperbaiki";
             }
             rules.push({ output, weight });
           }
@@ -95,16 +123,11 @@ export function evaluateRules(kondisi: number, umur: number, biaya: number, tota
     });
   });
 
-  // If no rules fired, default to Dipertimbangkan
-  if (rules.length === 0) {
-    rules.push({ output: "Dipertimbangkan", weight: 0.001 });
-  }
-
   return rules;
 }
 
-// 3. Defuzzification (Centroid Method)
-export function defuzzify(rules: { output: string; weight: number }[]): number {
+// 3. Defuzzification (Centroid Method with revised output bounds for 4 categories)
+export function defuzzify(rules: { output: string; weight: number }[]): number | null {
   let numerator = 0;
   let denominator = 0;
 
@@ -112,9 +135,10 @@ export function defuzzify(rules: { output: string; weight: number }[]): number {
     let maxMu = 0;
     rules.forEach((rule) => {
       let mu = 0;
-      if (rule.output === "Tidak Layak Hapus") mu = trapmf(x, -1, 0, 30, 50);
-      if (rule.output === "Dipertimbangkan") mu = trimf(x, 30, 50, 70);
-      if (rule.output === "Layak Hapus") mu = trapmf(x, 50, 70, 100, 101);
+      if (rule.output === "Tidak Memerlukan Tindakan") mu = trapmf(x, -1, 0, 20, 30);
+      if (rule.output === "Diperbaiki") mu = trimf(x, 25, 40, 55);
+      if (rule.output === "Dilelang") mu = trimf(x, 50, 62.5, 75);
+      if (rule.output === "Layak Hapus") mu = trapmf(x, 70, 85, 100, 101);
 
       maxMu = Math.max(maxMu, Math.min(mu, rule.weight));
     });
@@ -123,7 +147,7 @@ export function defuzzify(rules: { output: string; weight: number }[]): number {
     denominator += maxMu;
   }
 
-  return denominator === 0 ? 50 : numerator / denominator;
+  return denominator === 0 ? null : numerator / denominator;
 }
 
 export function calculateAssetEligibility(
@@ -132,12 +156,28 @@ export function calculateAssetEligibility(
   biayaPercent: number,
   totalPerbaikan: number = 0
 ) {
-  const rules = evaluateRules(kondisiScore, umur, biayaPercent, totalPerbaikan);
-  const score = defuzzify(rules);
+  // Cap the inputs to their defined domains to prevent out of bounds (null) scores
+  const cappedKondisi = Math.min(100, Math.max(0, kondisiScore));
+  const cappedUmur = Math.min(10, Math.max(0, umur));
+  const cappedBiaya = Math.min(100, Math.max(0, biayaPercent));
+  const cappedTotal = Math.min(10, Math.max(0, totalPerbaikan));
 
-  let status: "Layak Hapus" | "Dipertimbangkan" | "Tidak Layak Hapus" = "Dipertimbangkan";
-  if (score < 40) status = "Tidak Layak Hapus";
-  else if (score > 60) status = "Layak Hapus";
+  const rules = evaluateRules(cappedKondisi, cappedUmur, cappedBiaya, cappedTotal);
+  
+  if (rules.length === 0) {
+    return { score: null, status: null };
+  }
+
+  const score = defuzzify(rules);
+  if (score === null) {
+    return { score: null, status: null };
+  }
+
+  let status: "Layak Hapus" | "Dilelang" | "Diperbaiki" | "Tidak Memerlukan Tindakan" = "Tidak Memerlukan Tindakan";
+  if (score < 25) status = "Tidak Memerlukan Tindakan";
+  else if (score < 50) status = "Diperbaiki";
+  else if (score < 75) status = "Dilelang";
+  else status = "Layak Hapus";
 
   return { score, status };
 }

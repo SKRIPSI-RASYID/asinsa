@@ -17,12 +17,14 @@ import {
   CheckCircle2Icon, 
   AlertTriangleIcon, 
   XCircleIcon, 
+  Wrench,
   Loader2, 
   PlayIcon,
   RefreshCcwIcon,
   SearchIcon,
   FilterIcon,
-  FileTextIcon
+  FileTextIcon,
+  FileDownIcon
 } from "lucide-react"
 import { createClient } from "@/lib/supabase/client"
 import { calculateAssetEligibility } from "@/lib/fuzzy-engine"
@@ -36,7 +38,15 @@ import {
   TableHeader, 
   TableRow 
 } from "@/components/ui/table"
+import { Checkbox } from "@/components/ui/checkbox"
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu"
 import Link from "next/link"
+import { generateSuratDinas } from "@/lib/pdf-export"
 
 export default function EvaluationPage() {
   const [assets, setAssets] = useState<any[]>([])
@@ -45,6 +55,9 @@ export default function EvaluationPage() {
   const [progress, setProgress] = useState(0)
   const [searchQuery, setSearchQuery] = useState("")
   const [statusFilter, setStatusFilter] = useState<string>("all")
+  const [page, setPage] = useState(0)
+  const [selectedAssetIds, setSelectedAssetIds] = useState<Set<string>>(new Set())
+  const PAGE_SIZE = 25
   
   const supabase = createClient()
 
@@ -98,18 +111,28 @@ export default function EvaluationPage() {
     const total = assets.length
     const evaluated = assets.filter(a => a.fuzzy_status).length
     const layak = assets.filter(a => a.fuzzy_status === 'Layak Hapus').length
-    const dipertimbangkan = assets.filter(a => a.fuzzy_status === 'Dipertimbangkan').length
-    const tidakLayak = assets.filter(a => a.fuzzy_status === 'Tidak Layak Hapus').length
+    const dilelang = assets.filter(a => a.fuzzy_status === 'Dilelang').length
+    const diperbaiki = assets.filter(a => a.fuzzy_status === 'Diperbaiki').length
+    const tidakAdaTindakan = assets.filter(a => a.fuzzy_status === 'Tidak Memerlukan Tindakan').length
     
-    return { total, evaluated, layak, dipertimbangkan, tidakLayak, pending: total - evaluated }
+    return { total, evaluated, layak, dilelang, diperbaiki, tidakAdaTindakan, pending: total - evaluated }
   }, [assets])
 
   const filteredAssets = useMemo(() => {
     return assets.filter(asset => {
+      // Exclude "Tidak Memerlukan Tindakan" completely from the list
+      if (asset.fuzzy_status === "Tidak Memerlukan Tindakan") {
+        return false
+      }
+
+      const nameStr = asset.name || ""
+      const codeStr = asset.kode_aset || ""
+      const regStr = asset.register || ""
+
       const matchesSearch = 
-        asset.name.toLowerCase().includes(searchQuery.toLowerCase()) || 
-        asset.kode_aset.toLowerCase().includes(searchQuery.toLowerCase()) ||
-        asset.register.toLowerCase().includes(searchQuery.toLowerCase())
+        nameStr.toLowerCase().includes(searchQuery.toLowerCase()) || 
+        codeStr.toLowerCase().includes(searchQuery.toLowerCase()) ||
+        regStr.toLowerCase().includes(searchQuery.toLowerCase())
       
       const matchesStatus = 
         statusFilter === "all" || 
@@ -119,6 +142,39 @@ export default function EvaluationPage() {
       return matchesSearch && matchesStatus
     })
   }, [assets, searchQuery, statusFilter])
+
+  const paginatedAssets = useMemo(() => {
+    return filteredAssets.slice(page * PAGE_SIZE, (page + 1) * PAGE_SIZE)
+  }, [filteredAssets, page])
+
+  const totalPages = useMemo(() => {
+    return Math.ceil(filteredAssets.length / PAGE_SIZE)
+  }, [filteredAssets])
+
+  const toggleSelectAll = () => {
+    if (selectedAssetIds.size === paginatedAssets.length) {
+      setSelectedAssetIds(new Set())
+    } else {
+      setSelectedAssetIds(new Set(paginatedAssets.map(a => a.id_aset)))
+    }
+  }
+
+  const toggleSelectRow = (id: string) => {
+    const newSelected = new Set(selectedAssetIds)
+    if (newSelected.has(id)) {
+      newSelected.delete(id)
+    } else {
+      newSelected.add(id)
+    }
+    setSelectedAssetIds(newSelected)
+  }
+
+  const handleDownloadBulkPdf = (type: 'Service' | 'Barang' | 'Penghapusan') => {
+    const selectedAssets = assets.filter(a => selectedAssetIds.has(a.id_aset))
+    if (selectedAssets.length === 0) return
+    generateSuratDinas(selectedAssets, type)
+    toast.success(`Dokumen PDF ${type} berhasil dibuat`)
+  }
 
   const handleBulkAnalyze = async () => {
     if (assets.length === 0) return
@@ -143,8 +199,9 @@ export default function EvaluationPage() {
     const batchId = batchData.id
     let completed = 0
     let countLayak = 0
-    let countDipertimbangkan = 0
-    let countTidakLayak = 0
+    let countDilelang = 0
+    let countDiperbaiki = 0
+    let countTidakAdaTindakan = 0
 
     const total = assets.length
     const updatedAssets = [...assets]
@@ -154,42 +211,50 @@ export default function EvaluationPage() {
     for (let i = 0; i < total; i += chunkSize) {
       const chunk = updatedAssets.slice(i, i + chunkSize)
       
-      const chunkResults = chunk.map(asset => {
-        // Map scores
-        const kondisiScore = asset.condition === "Baik" ? 10 : asset.condition === "Rusak Ringan" ? 50 : 90
-        const age = new Date().getFullYear() - asset.purchase_year
-        const costPercent = asset.purchase_price > 0 ? (asset.maintenance_cost / asset.purchase_price) * 100 : 0
-        const totalRepairs = asset.total_repairs || 0
-        
-        const result = calculateAssetEligibility(kondisiScore, age, costPercent, totalRepairs)
-        
-        if (result.status === "Layak Hapus") countLayak++
-        else if (result.status === "Tidak Layak Hapus") countTidakLayak++
-        else countDipertimbangkan++
-
-        const timestamp = new Date().toISOString()
-        
-        return {
-          id_aset: asset.id_aset,
-          update: {
-            id_aset: asset.id_aset,
-            kode_aset: asset.kode_aset, // Added to satisfy NOT NULL constraint
-            fuzzy_score: result.score,
-            fuzzy_status: result.status,
-            last_analyzed_at: timestamp
-          },
-          history: {
-            id_aset: asset.id_aset,
-            id_batch: batchId,
-            fuzzy_score: result.score,
-            fuzzy_status: result.status,
-            kondisi_aset: asset.condition,
-            umur_aset: age,
-            biaya_perbaikan: asset.maintenance_cost,
-            total_perbaikan: totalRepairs
+      const chunkResults = chunk
+        .map(asset => {
+          // Map scores
+          const kondisiScore = asset.condition === "Baik" ? 10 : asset.condition === "Rusak Ringan" ? 50 : 90
+          const age = new Date().getFullYear() - asset.purchase_year
+          const costPercent = asset.purchase_price > 0 ? (asset.maintenance_cost / asset.purchase_price) * 100 : 0
+          const totalRepairs = asset.total_repairs || 0
+          
+          const result = calculateAssetEligibility(kondisiScore, age, costPercent, totalRepairs)
+          
+          // Skip assets that do not fall into any fuzzy output category (out of bounds)
+          if (result.status === null || result.score === null) {
+            return null
           }
-        }
-      })
+          
+          if (result.status === "Layak Hapus") countLayak++
+          else if (result.status === "Diperbaiki") countDiperbaiki++
+          else if (result.status === "Tidak Memerlukan Tindakan") countTidakAdaTindakan++
+          else countDilelang++
+
+          const timestamp = new Date().toISOString()
+          
+          return {
+            id_aset: asset.id_aset,
+            update: {
+              id_aset: asset.id_aset,
+              kode_aset: asset.kode_aset, // Added to satisfy NOT NULL constraint
+              fuzzy_score: result.score,
+              fuzzy_status: result.status,
+              last_analyzed_at: timestamp
+            },
+            history: {
+              id_aset: asset.id_aset,
+              id_batch: batchId,
+              fuzzy_score: result.score,
+              fuzzy_status: result.status,
+              kondisi_aset: asset.condition,
+              umur_aset: age,
+              biaya_perbaikan: asset.maintenance_cost,
+              total_perbaikan: totalRepairs
+            }
+          }
+        })
+        .filter((r): r is NonNullable<typeof r> => r !== null)
 
       // 1. Concurrent Update Assets within Chunk
       const updatePromises = chunkResults.map(async (r) => {
@@ -241,9 +306,10 @@ export default function EvaluationPage() {
     await supabase
       .from('batch_evaluasi')
       .update({
-        status_layak: countLayak,
-        status_dipertimbangkan: countDipertimbangkan,
-        status_tidak_layak: countTidakLayak
+        status_layak_hapus: countLayak,
+        status_dilelang: countDilelang,
+        status_diperbaiki: countDiperbaiki,
+        status_tidak_memerlukan_tindakan: countTidakAdaTindakan
       })
       .eq('id', batchId)
 
@@ -297,7 +363,7 @@ export default function EvaluationPage() {
         </Card>
       )}
 
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
         <Card className="bg-gradient-to-br from-background to-muted/50">
           <CardHeader className="pb-2">
             <CardDescription>Total Aset</CardDescription>
@@ -316,27 +382,27 @@ export default function EvaluationPage() {
             <CardTitle className="text-2xl text-green-600 dark:text-green-400">{stats.layak}</CardTitle>
           </CardHeader>
           <CardContent>
-            <Progress value={(stats.layak / stats.total) * 100} className="h-1 bg-green-100 dark:bg-green-900/20" />
+            <Progress value={stats.total > 0 ? (stats.layak / stats.total) * 100 : 0} className="h-1 bg-green-100 dark:bg-green-900/20" />
           </CardContent>
         </Card>
 
         <Card className="bg-gradient-to-br from-background to-yellow-500/5 border-yellow-500/20">
           <CardHeader className="pb-2">
-            <CardDescription className="text-yellow-600 dark:text-yellow-400">Dipertimbangkan</CardDescription>
-            <CardTitle className="text-2xl text-yellow-600 dark:text-yellow-400">{stats.dipertimbangkan}</CardTitle>
+            <CardDescription className="text-yellow-600 dark:text-yellow-400">Dilelang</CardDescription>
+            <CardTitle className="text-2xl text-yellow-600 dark:text-yellow-400">{stats.dilelang}</CardTitle>
           </CardHeader>
           <CardContent>
-            <Progress value={(stats.dipertimbangkan / stats.total) * 100} className="h-1 bg-yellow-100 dark:bg-yellow-900/20" />
+            <Progress value={stats.total > 0 ? (stats.dilelang / stats.total) * 100 : 0} className="h-1 bg-yellow-100 dark:bg-yellow-900/20" />
           </CardContent>
         </Card>
 
-        <Card className="bg-gradient-to-br from-background to-red-500/5 border-red-500/20">
+        <Card className="bg-gradient-to-br from-background to-blue-500/5 border-blue-500/20">
           <CardHeader className="pb-2">
-            <CardDescription className="text-red-600 dark:text-red-400">Tidak Layak</CardDescription>
-            <CardTitle className="text-2xl text-red-600 dark:text-red-400">{stats.tidakLayak}</CardTitle>
+            <CardDescription className="text-blue-600 dark:text-blue-400">Diperbaiki</CardDescription>
+            <CardTitle className="text-2xl text-blue-600 dark:text-blue-400">{stats.diperbaiki}</CardTitle>
           </CardHeader>
           <CardContent>
-            <Progress value={(stats.tidakLayak / stats.total) * 100} className="h-1 bg-red-100 dark:bg-red-900/20" />
+            <Progress value={stats.total > 0 ? (stats.diperbaiki / stats.total) * 100 : 0} className="h-1 bg-blue-100 dark:bg-blue-900/20" />
           </CardContent>
         </Card>
       </div>
@@ -355,33 +421,87 @@ export default function EvaluationPage() {
                   placeholder="Cari aset..." 
                   className="pl-8" 
                   value={searchQuery}
-                  onChange={(e) => setSearchQuery(e.target.value)}
+                  onChange={(e) => {
+                    setSearchQuery(e.target.value)
+                    setPage(0)
+                  }}
                 />
               </div>
-              <div className="flex items-center gap-2 bg-muted/50 p-1 rounded-md border">
+              {selectedAssetIds.size > 0 && (
+                <DropdownMenu>
+                  <DropdownMenuTrigger asChild>
+                    <Button variant="default" size="sm" className="h-8">
+                      <FileDownIcon className="mr-2 h-4 w-4" /> Cetak Terpilih ({selectedAssetIds.size})
+                    </Button>
+                  </DropdownMenuTrigger>
+                  <DropdownMenuContent align="end">
+                    <DropdownMenuItem onClick={() => handleDownloadBulkPdf('Service')}>
+                      Surat Permintaan Service
+                    </DropdownMenuItem>
+                    <DropdownMenuItem onClick={() => handleDownloadBulkPdf('Barang')}>
+                      Surat Permintaan Barang
+                    </DropdownMenuItem>
+                    <DropdownMenuItem onClick={() => handleDownloadBulkPdf('Penghapusan')}>
+                      Surat Permintaan Penghapusan
+                    </DropdownMenuItem>
+                  </DropdownMenuContent>
+                </DropdownMenu>
+              )}
+              <div className="flex items-center gap-1.5 bg-muted/50 p-1 rounded-md border">
                 <Button 
                   variant={statusFilter === "all" ? "secondary" : "ghost"} 
                   size="sm" 
-                  onClick={() => setStatusFilter("all")}
-                  className="h-8 text-xs"
+                  onClick={() => {
+                    setStatusFilter("all")
+                    setPage(0)
+                  }}
+                  className="h-8 text-[11px]"
                 >
                   Semua
                 </Button>
                 <Button 
                   variant={statusFilter === "pending" ? "secondary" : "ghost"} 
                   size="sm" 
-                  onClick={() => setStatusFilter("pending")}
-                  className="h-8 text-xs"
+                  onClick={() => {
+                    setStatusFilter("pending")
+                    setPage(0)
+                  }}
+                  className="h-8 text-[11px]"
                 >
                   Belum
                 </Button>
                 <Button 
                   variant={statusFilter === "Layak Hapus" ? "secondary" : "ghost"} 
                   size="sm" 
-                  onClick={() => setStatusFilter("Layak Hapus")}
-                  className="h-8 text-xs"
+                  onClick={() => {
+                    setStatusFilter("Layak Hapus")
+                    setPage(0)
+                  }}
+                  className="h-8 text-[11px]"
                 >
-                  Layak
+                  Layak Hapus
+                </Button>
+                <Button 
+                  variant={statusFilter === "Dilelang" ? "secondary" : "ghost"} 
+                  size="sm" 
+                  onClick={() => {
+                    setStatusFilter("Dilelang")
+                    setPage(0)
+                  }}
+                  className="h-8 text-[11px]"
+                >
+                  Dilelang
+                </Button>
+                <Button 
+                  variant={statusFilter === "Diperbaiki" ? "secondary" : "ghost"} 
+                  size="sm" 
+                  onClick={() => {
+                    setStatusFilter("Diperbaiki")
+                    setPage(0)
+                  }}
+                  className="h-8 text-[11px]"
+                >
+                  Diperbaiki
                 </Button>
               </div>
             </div>
@@ -398,6 +518,13 @@ export default function EvaluationPage() {
               <Table>
                 <TableHeader>
                   <TableRow className="bg-muted/50">
+                    <TableHead className="w-[40px] text-center">
+                      <Checkbox 
+                        checked={paginatedAssets.length > 0 && selectedAssetIds.size === paginatedAssets.length}
+                        onCheckedChange={toggleSelectAll}
+                        aria-label="Pilih semua baris di halaman ini"
+                      />
+                    </TableHead>
                     <TableHead className="w-[100px]">Kode</TableHead>
                     <TableHead>Nama Aset</TableHead>
                     <TableHead>Kondisi</TableHead>
@@ -409,13 +536,20 @@ export default function EvaluationPage() {
                 <TableBody>
                   {filteredAssets.length === 0 ? (
                     <TableRow>
-                      <TableCell colSpan={6} className="h-32 text-center text-muted-foreground">
+                      <TableCell colSpan={7} className="h-32 text-center text-muted-foreground">
                         Tidak ada aset yang ditemukan.
                       </TableCell>
                     </TableRow>
                   ) : (
-                    filteredAssets.map((asset) => (
-                      <TableRow key={asset.id_aset}>
+                    paginatedAssets.map((asset) => (
+                      <TableRow key={asset.id_aset} className={selectedAssetIds.has(asset.id_aset) ? "bg-primary/5" : ""}>
+                        <TableCell className="text-center">
+                          <Checkbox 
+                            checked={selectedAssetIds.has(asset.id_aset)}
+                            onCheckedChange={() => toggleSelectRow(asset.id_aset)}
+                            aria-label={`Pilih aset ${asset.kode_aset}`}
+                          />
+                        </TableCell>
                         <TableCell className="font-mono text-xs">{asset.kode_aset}</TableCell>
                         <TableCell>
                           <div className="font-medium">{asset.name}</div>
@@ -434,14 +568,17 @@ export default function EvaluationPage() {
                             <div className="flex items-center gap-1.5">
                               {asset.fuzzy_status === "Layak Hapus" ? (
                                 <CheckCircle2Icon className="h-4 w-4 text-green-500" />
-                              ) : asset.fuzzy_status === "Dipertimbangkan" ? (
+                              ) : asset.fuzzy_status === "Dilelang" ? (
                                 <AlertTriangleIcon className="h-4 w-4 text-yellow-500" />
+                              ) : asset.fuzzy_status === "Diperbaiki" ? (
+                                <Wrench className="h-4 w-4 text-blue-500" />
                               ) : (
-                                <XCircleIcon className="h-4 w-4 text-red-500" />
+                                <CheckCircle2Icon className="h-4 w-4 text-teal-500" />
                               )}
                               <span className={`text-xs font-semibold ${
                                 asset.fuzzy_status === "Layak Hapus" ? "text-green-600" : 
-                                asset.fuzzy_status === "Dipertimbangkan" ? "text-yellow-600" : "text-red-600"
+                                asset.fuzzy_status === "Dilelang" ? "text-yellow-600" : 
+                                asset.fuzzy_status === "Diperbaiki" ? "text-blue-600" : "text-teal-600"
                               }`}>
                                 {asset.fuzzy_status}
                               </span>
@@ -464,10 +601,36 @@ export default function EvaluationPage() {
           )}
         </CardContent>
         {!loading && filteredAssets.length > 0 && (
-          <CardFooter className="border-t bg-muted/20 px-6 py-3">
+          <CardFooter className="border-t bg-muted/20 px-6 py-3 flex flex-col sm:flex-row items-center justify-between gap-4">
             <div className="text-xs text-muted-foreground">
-              Menampilkan {filteredAssets.length} dari {assets.length} aset
+              Menampilkan {Math.min(filteredAssets.length, page * PAGE_SIZE + 1)}-{Math.min(filteredAssets.length, (page + 1) * PAGE_SIZE)} dari {filteredAssets.length} aset
+              {filteredAssets.length !== assets.length && ` (difilter dari ${assets.length} total)`}
             </div>
+            {totalPages > 1 && (
+              <div className="flex gap-2">
+                <Button 
+                  variant="outline" 
+                  size="sm" 
+                  onClick={() => setPage(p => Math.max(0, p - 1))} 
+                  disabled={page === 0}
+                  className="h-8"
+                >
+                  Sebelumnya
+                </Button>
+                <span className="text-xs flex items-center px-2 font-medium">
+                  Halaman {page + 1} dari {totalPages}
+                </span>
+                <Button 
+                  variant="outline" 
+                  size="sm" 
+                  onClick={() => setPage(p => Math.min(totalPages - 1, p + 1))} 
+                  disabled={page >= totalPages - 1}
+                  className="h-8"
+                >
+                  Selanjutnya
+                </Button>
+              </div>
+            )}
           </CardFooter>
         )}
       </Card>

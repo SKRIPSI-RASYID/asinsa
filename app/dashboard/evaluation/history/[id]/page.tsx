@@ -16,6 +16,7 @@ import {
   CheckCircle2Icon, 
   AlertTriangleIcon, 
   XCircleIcon, 
+  Wrench,
   Loader2,
   CalendarIcon,
   SearchIcon,
@@ -87,6 +88,11 @@ export default function BatchDetailPage() {
 
   const filteredItems = useMemo(() => {
     return items.filter(item => {
+      // Exclude "Tidak Memerlukan Tindakan" completely from the list
+      if (item.fuzzy_status === "Tidak Memerlukan Tindakan") {
+        return false
+      }
+
       const assetName = item.aset?.kategori_barang?.nama_kategori || ""
       const kode = item.aset?.kode_aset || ""
       const reg = item.aset?.register || ""
@@ -135,7 +141,7 @@ export default function BatchDetailPage() {
         </div>
       </div>
 
-      <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+      <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-4">
         <Card>
           <CardHeader className="pb-2">
             <CardDescription>Total Aset</CardDescription>
@@ -150,33 +156,33 @@ export default function BatchDetailPage() {
         <Card>
           <CardHeader className="pb-2">
             <CardDescription className="text-green-600">Layak Hapus</CardDescription>
-            <CardTitle className="text-2xl text-green-700">{batch.status_layak}</CardTitle>
+            <CardTitle className="text-2xl text-green-700">{batch.status_layak_hapus}</CardTitle>
           </CardHeader>
           <CardContent>
             <div className="h-1 w-full bg-muted rounded-full overflow-hidden">
-              <div className="h-full bg-green-500" style={{ width: `${(batch.status_layak/batch.total_aset)*100}%` }} />
+              <div className="h-full bg-green-500" style={{ width: `${batch.total_aset > 0 ? (batch.status_layak_hapus/batch.total_aset)*100 : 0}%` }} />
             </div>
           </CardContent>
         </Card>
         <Card>
           <CardHeader className="pb-2">
-            <CardDescription className="text-yellow-600">Dipertimbangkan</CardDescription>
-            <CardTitle className="text-2xl text-yellow-700">{batch.status_dipertimbangkan}</CardTitle>
+            <CardDescription className="text-yellow-600">Dilelang</CardDescription>
+            <CardTitle className="text-2xl text-yellow-700">{batch.status_dilelang}</CardTitle>
           </CardHeader>
           <CardContent>
             <div className="h-1 w-full bg-muted rounded-full overflow-hidden">
-              <div className="h-full bg-yellow-500" style={{ width: `${(batch.status_dipertimbangkan/batch.total_aset)*100}%` }} />
+              <div className="h-full bg-yellow-500" style={{ width: `${batch.total_aset > 0 ? (batch.status_dilelang/batch.total_aset)*100 : 0}%` }} />
             </div>
           </CardContent>
         </Card>
         <Card>
           <CardHeader className="pb-2">
-            <CardDescription className="text-red-600">Tidak Layak</CardDescription>
-            <CardTitle className="text-2xl text-red-700">{batch.status_tidak_layak}</CardTitle>
+            <CardDescription className="text-blue-600">Diperbaiki</CardDescription>
+            <CardTitle className="text-2xl text-blue-700">{batch.status_diperbaiki}</CardTitle>
           </CardHeader>
           <CardContent>
             <div className="h-1 w-full bg-muted rounded-full overflow-hidden">
-              <div className="h-full bg-red-500" style={{ width: `${(batch.status_tidak_layak/batch.total_aset)*100}%` }} />
+              <div className="h-full bg-blue-500" style={{ width: `${batch.total_aset > 0 ? (batch.status_diperbaiki/batch.total_aset)*100 : 0}%` }} />
             </div>
           </CardContent>
         </Card>
@@ -256,17 +262,23 @@ export default function BatchDetailPage() {
                       <div className="flex items-center gap-2">
                         {item.fuzzy_status === "Layak Hapus" ? (
                           <CheckCircle2Icon className="h-4 w-4 text-green-500" />
-                        ) : item.fuzzy_status === "Dipertimbangkan" ? (
+                        ) : item.fuzzy_status === "Dilelang" ? (
                           <AlertTriangleIcon className="h-4 w-4 text-yellow-500" />
+                        ) : item.fuzzy_status === "Diperbaiki" ? (
+                          <Wrench className="h-4 w-4 text-blue-500" />
                         ) : (
-                          <XCircleIcon className="h-4 w-4 text-red-500" />
+                          <CheckCircle2Icon className="h-4 w-4 text-teal-500" />
                         )}
                         <Badge 
                           variant={
                             item.fuzzy_status === "Layak Hapus" ? "default" : 
-                            item.fuzzy_status === "Dipertimbangkan" ? "secondary" : "destructive"
+                            item.fuzzy_status === "Dilelang" ? "secondary" : "outline"
                           }
-                          className={item.fuzzy_status === "Layak Hapus" ? "bg-green-600 hover:bg-green-700" : ""}
+                          className={
+                            item.fuzzy_status === "Layak Hapus" ? "bg-green-600 hover:bg-green-700 text-white" : 
+                            item.fuzzy_status === "Diperbaiki" ? "bg-blue-100 dark:bg-blue-900/30 text-blue-700 dark:text-blue-400 border-blue-200 dark:border-blue-800" : 
+                            item.fuzzy_status === "Tidak Memerlukan Tindakan" ? "bg-teal-100 dark:bg-teal-900/30 text-teal-700 dark:text-teal-400 border-teal-200 dark:border-teal-800" : ""
+                          }
                         >
                           {item.fuzzy_status}
                         </Badge>

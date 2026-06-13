@@ -94,6 +94,20 @@ export default function EvaluationHistoryPage() {
       return
     }
 
+    // Clear active asset analysis statuses in aset table to sync frontend and database
+    const { error: asetError } = await supabase
+      .from('aset')
+      .update({
+        fuzzy_score: null,
+        fuzzy_status: null,
+        last_analyzed_at: null
+      })
+      .not('id_aset', 'is', null)
+
+    if (asetError) {
+      console.error("Clear asset analysis error:", asetError)
+    }
+
     // Then, clear batch summaries
     const { error: batchError } = await supabase
       .from('batch_evaluasi')
@@ -199,18 +213,18 @@ export default function EvaluationHistoryPage() {
                   </div>
 
                   <div className="flex flex-wrap items-center gap-3 md:gap-6">
-                    <div className="grid grid-cols-3 gap-2">
+                    <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
                       <div className="flex flex-col items-center px-3 py-1.5 rounded-lg bg-green-50 border border-green-100">
-                        <span className="text-[10px] font-bold uppercase tracking-wider text-green-600/70">Layak</span>
-                        <span className="text-sm font-bold text-green-700">{batch.status_layak}</span>
+                        <span className="text-[10px] font-bold uppercase tracking-wider text-green-600/70">Layak Hapus</span>
+                        <span className="text-sm font-bold text-green-700">{batch.status_layak_hapus}</span>
                       </div>
                       <div className="flex flex-col items-center px-3 py-1.5 rounded-lg bg-yellow-50 border border-yellow-100">
-                        <span className="text-[10px] font-bold uppercase tracking-wider text-yellow-600/70">Pertimbang</span>
-                        <span className="text-sm font-bold text-yellow-700">{batch.status_dipertimbangkan}</span>
+                        <span className="text-[10px] font-bold uppercase tracking-wider text-yellow-600/70">Dilelang</span>
+                        <span className="text-sm font-bold text-yellow-700">{batch.status_dilelang}</span>
                       </div>
-                      <div className="flex flex-col items-center px-3 py-1.5 rounded-lg bg-red-50 border border-red-100">
-                        <span className="text-[10px] font-bold uppercase tracking-wider text-red-600/70">Tidak</span>
-                        <span className="text-sm font-bold text-red-700">{batch.status_tidak_layak}</span>
+                      <div className="flex flex-col items-center px-3 py-1.5 rounded-lg bg-blue-50 border border-blue-100">
+                        <span className="text-[10px] font-bold uppercase tracking-wider text-blue-600/70">Diperbaiki</span>
+                        <span className="text-sm font-bold text-blue-700">{batch.status_diperbaiki}</span>
                       </div>
                     </div>
                     

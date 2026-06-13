@@ -18,7 +18,7 @@ export default function FuzzySettingsPage() {
       <div>
         <h2 className="text-3xl font-bold tracking-tight">Parameter Fuzzy</h2>
         <p className="text-muted-foreground">
-          Konfigurasi variabel input dan fungsi keanggotaan untuk analisis Mamdani.
+          Konfigurasi variabel input dan fungsi keanggotaan untuk analisis Mamdani (Diselaraskan dengan PP 27/2014 & PP 28/2020).
         </p>
       </div>
 
@@ -32,7 +32,7 @@ export default function FuzzySettingsPage() {
             <div className="grid grid-cols-2 gap-4">
               <div className="space-y-2">
                 <Label>Baik (Range)</Label>
-                <Input defaultValue="0 - 50" />
+                <Input defaultValue="0 - 45" />
               </div>
               <div className="space-y-2">
                 <Label>Rusak Ringan (Range)</Label>
@@ -40,7 +40,7 @@ export default function FuzzySettingsPage() {
               </div>
               <div className="space-y-2">
                 <Label>Rusak Berat (Range)</Label>
-                <Input defaultValue="50 - 100" />
+                <Input defaultValue="55 - 100" />
               </div>
             </div>
           </CardContent>
@@ -63,7 +63,7 @@ export default function FuzzySettingsPage() {
               </div>
               <div className="space-y-2">
                 <Label>Lama</Label>
-                <Input defaultValue="5 - 10" />
+                <Input defaultValue="5 - 10+" />
               </div>
             </div>
           </CardContent>
@@ -78,11 +78,11 @@ export default function FuzzySettingsPage() {
             <div className="grid grid-cols-2 gap-4">
               <div className="space-y-2">
                 <Label>Jarang</Label>
-                <Input defaultValue="0 - 2" />
+                <Input defaultValue="0 - 3" />
               </div>
               <div className="space-y-2">
                 <Label>Normal</Label>
-                <Input defaultValue="1 - 4" />
+                <Input defaultValue="1 - 5" />
               </div>
               <div className="space-y-2">
                 <Label>Sering</Label>
@@ -100,16 +100,16 @@ export default function FuzzySettingsPage() {
           <CardContent className="space-y-4">
             <div className="grid grid-cols-2 gap-4">
               <div className="space-y-2">
-                <Label>Rendah</Label>
-                <Input defaultValue="0 - 30" />
+                <Label>Rendah (di bawah BMBP 1)</Label>
+                <Input defaultValue="0% - 30%" />
               </div>
               <div className="space-y-2">
-                <Label>Sedang</Label>
-                <Input defaultValue="20 - 60" />
+                <Label>Sedang (BMBP 1 - BMBP 2)</Label>
+                <Input defaultValue="20% - 50%" />
               </div>
               <div className="space-y-2">
-                <Label>Tinggi</Label>
-                <Input defaultValue="50 - 100+" />
+                <Label>Tinggi (melebihi BMBP 2)</Label>
+                <Input defaultValue="40% - 100%" />
               </div>
             </div>
           </CardContent>
@@ -117,19 +117,19 @@ export default function FuzzySettingsPage() {
 
         <Card className="md:col-span-2">
           <CardHeader>
-            <CardTitle>Basis Aturan (IF-THEN)</CardTitle>
-            <CardDescription>Logika yang digunakan untuk menentukan hasil</CardDescription>
+            <CardTitle>Basis Aturan (IF-THEN) — Berdasarkan Regulasi BMD/BMN</CardTitle>
+            <CardDescription>Logika legalitas untuk penentuan status penghapusan aset daerah</CardDescription>
           </CardHeader>
           <CardContent>
             <div className="space-y-2 text-sm">
               <div className="p-2 bg-muted rounded border-l-4 border-red-500">
-                IF Kondisi <b>Rusak Berat</b> OR (Umur <b>Lama</b> AND Biaya <b>Tinggi</b>) OR (Total Perbaikan <b>Sering</b>) THEN <b>Layak Hapus</b>
-              </div>
-              <div className="p-2 bg-muted rounded border-l-4 border-green-500">
-                IF Kondisi <b>Baik</b> AND Umur <b>Baru</b> AND Biaya <b>Rendah</b> THEN <b>Tidak Layak Hapus</b>
+                IF Kondisi <b>Rusak Berat</b> OR (Umur <b>Lama</b> AND Biaya <b>Tinggi (&gt;50%)</b>) OR (Total Perbaikan <b>Sering</b> AND Biaya <b>Tinggi</b>) THEN <b>Layak Hapus</b>
               </div>
               <div className="p-2 bg-muted rounded border-l-4 border-yellow-500">
-                ELSE <b>Dipertimbangkan</b>
+                IF (Umur <b>Lama</b> AND Kondisi <b>Baik / Rusak Ringan</b> AND Biaya <b>bukan Tinggi</b>) OR (Umur <b>Sedang</b> AND Biaya <b>Tinggi</b> AND Kondisi <b>bukan Rusak Berat</b>) THEN <b>Dilelang</b>
+              </div>
+              <div className="p-2 bg-muted rounded border-l-4 border-blue-500">
+                ELSE <b>Diperbaiki (Pertahankan Aset)</b>
               </div>
             </div>
           </CardContent>

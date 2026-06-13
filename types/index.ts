@@ -51,7 +51,7 @@ export interface Asset {
   
   // Analysis results
   fuzzy_score?: number;
-  fuzzy_status?: 'Layak Hapus' | 'Dipertimbangkan' | 'Tidak Layak Hapus';
+  fuzzy_status?: 'Layak Hapus' | 'Dilelang' | 'Diperbaiki' | 'Tidak Memerlukan Tindakan';
   last_analyzed_at?: string;
 
   // UI / Legacy Compatibility

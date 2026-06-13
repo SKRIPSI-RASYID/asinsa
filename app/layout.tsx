@@ -34,8 +34,8 @@ export default function RootLayout({
       <body className={`${geistSans.variable} ${geistMono.variable} ${notoSans.variable} ${playfair.variable} antialiased font-sans`}>
         <ThemeProvider
           attribute="class"
-          defaultTheme="system"
-          enableSystem
+          defaultTheme="light"
+          forcedTheme="light"
           disableTransitionOnChange
         >
           <TooltipProvider>
